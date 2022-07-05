@@ -16,3 +16,7 @@ void PhysicalObject::act(float dt) {
     y_frac = y_frac > box.rb.y ? box.rb.y : y_frac;
   }
 }
+
+bool PhysicalObject::isInsideBox(const Box2d& box) {
+  return y_frac >= box.lt.y && y_frac < box.rb.y && x_frac >= box.lt.x && x_frac < box.rb.x;
+}

@@ -9,5 +9,11 @@ void log(T msg) {
   std::cerr << msg;
 }
 
+template <class Head, class ...Tail>
+void log(Head head, Tail... tail) {
+  log(head);
+  log(tail...);
+}
+
 
 #endif // GAME_LOG_H_SENTRY

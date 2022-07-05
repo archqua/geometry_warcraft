@@ -87,4 +87,70 @@ Pixel& Sprite::operator()(unsigned h, unsigned w) {
 }
 
 
+#ifdef DEBUG
+uint32_t green = 0 ^ (255 << 24) ^ (255 << 8);
+#endif
 
+void SpriteObject::draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) {
+  Box2d sprite_box0{
+    .lt = Point2d{.y = 0, .x=0,},
+    .rb = Point2d{.y = (int)sprite->getHeight(), .x = (int)sprite->getWidth(),}
+  };
+
+  Rectangle rect(sprite_box0);
+  TransformChain chain;
+  chain.append(std::make_unique<Translation>(rect.translate_(-0.5*sprite_box0.rb)));
+  chain.append(std::make_unique<Rotation>(rect.rotate_(rot)));
+  chain.append(std::make_unique<Translation>(rect.translate_(pos)));
+
+  Box2d bounding_box = boundingBox2d(rect);
+  Box2d screen_box = Box2d{
+    .lt = Point2d{.y = 0, .x = 0},
+    .rb = Point2d{.y = (int)screen_h, .x = (int)screen_w},
+  };
+  bounding_box.intersect_(screen_box);
+  
+  for (int i = bounding_box.lt.y; i < bounding_box.rb.y; ++i) {
+    for (int j = bounding_box.lt.x; j < bounding_box.rb.x; ++j) {
+      Point2d point = Point2d{.y=i, .x=j};
+      if (rect.contains(point)) {
+        point = chain.backward(point);
+
+        // finally
+        // TODO actual color addition??
+        // TODO antialiasing??
+        buffer[i*screen_w + j] = (*sprite)(point.y, point.x).toBGRA();
+        // buffer[100 + 100*screen_w + i*screen_w + j] = sprite(i, j).toBGRA();
+      }
+    }
+  }
+
+#ifdef DEBUG
+  if (bounding_box.lt.x < screen_w) {
+    for (int i = bounding_box.lt.y; i < bounding_box.rb.y; ++i) {
+      buffer[i*screen_w + bounding_box.lt.x] = green;
+    }
+  }
+  if (bounding_box.rb.x > 0) {
+    for (int i = bounding_box.lt.y; i < bounding_box.rb.y; ++i) {
+      buffer[i*screen_w + bounding_box.rb.x-1] = green;
+    }
+  }
+  if (bounding_box.lt.y < screen_h) {
+    for (int j = bounding_box.lt.x; j < bounding_box.rb.x; ++j) {
+      buffer[bounding_box.lt.y*screen_w + j] = green;
+    }
+  }
+  if (bounding_box.rb.y > 0) {
+    for (int j = bounding_box.lt.x; j < bounding_box.rb.x; ++j) {
+      buffer[(bounding_box.rb.y-1)*screen_w + j] = green;
+    }
+  }
+#endif
+}
+
+void SpriteObject::act(float dt) {
+  PhysicalObject::act(dt);
+  pos.y = y_frac;
+  pos.x = x_frac;
+}

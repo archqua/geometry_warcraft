@@ -32,6 +32,9 @@ public:
   void collide(Collider& receiver, Callback& cb) {
     if (hit_mask & receiver.receive_mask) cb(*this, receiver);
   }
+  enum struct Mask : unsigned {
+    player=0,
+  };
 };
 
 class CollisionObject {

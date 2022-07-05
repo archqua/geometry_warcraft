@@ -24,24 +24,31 @@
 
 const char *player_sprite_file = "sprites/player.b";
 
-std::list<std::unique_ptr<PhysicalObject>> physical_objects;
+Armory armory;
 
+std::list<std::unique_ptr<PhysicalObject>> physical_objects;
 
 // initialize game data in this function
 void initialize()
 {
-  Sprite player_sprite(0,0);
+  // physical_objects.push_back(std::make_unique<PhysicalObject>());
   try {
-    player_sprite = Sprite::fromBinaryFile(player_sprite_file);
+    armory.load(std::insert_iterator<decltype(physical_objects)>(physical_objects, physical_objects.begin()));
   } catch (const Sprite::FOError& err) {
-    log("failed to open ");
-    log(err.what());
-    log("\n");
+    log("failed to open ", err.what(), "\n");
     throw;
   } catch (const Sprite::FRError& err) {
-    log("failed to read ");
-    log(err.what());
-    log("\n");
+    log("failed to read ", err.what(), "\n");
+    throw;
+  }
+  SpriteRef player_sprite(0,0);
+  try {
+    *player_sprite = Sprite::fromBinaryFile(player_sprite_file);
+  } catch (const Sprite::FOError& err) {
+    log("failed to open ", err.what(), "\n");
+    throw;
+  } catch (const Sprite::FRError& err) {
+    log("failed to read ", err.what(), "\n");
     throw;
   }
   std::unique_ptr<PhysicalObject> player = std::make_unique<Player>(
@@ -51,15 +58,33 @@ void initialize()
         .rb=Point2d{.y=SCREEN_HEIGHT, .x=SCREEN_WIDTH},
       }
   );
+  static_cast<Player*>(player.get())->arm(armory[0]);
   physical_objects.push_back(std::move(player));
 }
 
 // this function is called to update game data,
 // dt - time elapsed since the previous update (in seconds)
+const Box2d existential_box = Box2d{
+  .lt = Point2d{.y = -200, .x = -200},
+  .rb = Point2d{.y = SCREEN_HEIGHT + 200, .x = SCREEN_WIDTH + 200},
+};
 void act(float dt)
 {
   if (is_key_pressed(VK_ESCAPE))
     schedule_quit_game();
+
+  auto iter = physical_objects.begin();
+  while (iter !=physical_objects.end()) {
+    auto& obj = *iter;
+    if (!obj->isInsideBox(existential_box)) {
+      auto eraser = iter++;
+      physical_objects.erase(eraser);
+      continue;
+    } else {
+      ++iter;
+      continue;
+    }
+  }
 
   for (auto& obj : physical_objects) {
     obj->act(dt);

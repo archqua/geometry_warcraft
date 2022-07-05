@@ -8,6 +8,7 @@
 #include <vector>
 #include <fstream>
 #include <cmath>
+#include <memory>
 
 using byte = unsigned char;
 
@@ -22,13 +23,15 @@ class Sprite {
   std::vector<Pixel> pixels;
   unsigned height, width;
 public:
+  Sprite() = default;
   Sprite(unsigned h, unsigned w): pixels(h*w), height(h), width(w) {}
-  Sprite(Sprite&& other)
-    : pixels(std::move(other.pixels)), height(other.height), width(other.width)
-  {}
-  void operator=(Sprite&& other) {
-    pixels=std::move(other.pixels); height=other.height; width=other.width;
-  }
+  Sprite(Sprite&& other) = default;
+  //   : pixels(std::move(other.pixels)), height(other.height), width(other.width)
+  // {}
+  Sprite& operator=(Sprite&& other) = default;
+  // void operator=(Sprite&& other) {
+  //   pixels=std::move(other.pixels); height=other.height; width=other.width;
+  // }
   Pixel operator()(unsigned h, unsigned w) const;
   Pixel& operator()(unsigned h, unsigned w);
   unsigned getHeight() const { return height; }
@@ -92,5 +95,29 @@ Sprite Sprite::fromBinaryFile(const char *file)
     throw FOError(file);
   }
 }
+
+class SpriteRef : public std::shared_ptr<Sprite> {
+public:
+  SpriteRef() = default;
+  using Base = std::shared_ptr<Sprite>;
+  SpriteRef(std::shared_ptr<Sprite> ptr): Base(std::move(ptr)) {}
+  SpriteRef(unsigned h, unsigned w) { *this = std::make_shared<Sprite>(h, w); }
+  Pixel operator()(unsigned h, unsigned w) const { return (**this)(h, w); }
+  Pixel& operator()(unsigned h, unsigned w) { return (**this)(h, w); }
+};
+
+class SpriteObject : public PhysicalObject {
+protected:
+  Point2d pos;
+  float rot;
+  SpriteRef sprite;
+public:
+  // SpriteObject(Point2d pos, float rot, std::shared_ptr<Sprite> sprite)
+  //   : pos(pos), rot(rot), sprite(std::move(sprite)) {}
+  SpriteObject(Point2d pos, float rot, SpriteRef sprite)
+    : pos(pos), rot(rot), sprite(std::move(sprite)) {}
+  void draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) override;
+  void act(float dt) override;
+};
 
 #endif // SPRITE_H_SENTRY

@@ -6,22 +6,19 @@
 #include "physical_object.h"
 #include "geometry.h"
 #include "sprite.h"
+#include "weapon.h"
+#include <future>
 
-class Player : public PhysicalObject, public CollisionObject {
-  Point2d pos;
-  float rot;
-  Sprite sprite;
+class Player : public SpriteObject, public CollisionObject {
+  Point2d move(float dt);
+  void fire(Point2d cursor);
+  std::future<void> cooldowner;
 
-  Sphere collision_sphere;
-
+  std::unique_ptr<Weapon> weapon;
 public:
-  Player(Point2d pos, float rot, Sprite&& sprite, std::optional<Box2d> ptl = std::nullopt)
-    : pos(pos), rot(rot), sprite(std::move(sprite))
-  {
-    place_to_live = ptl;
-  }
-  void draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) override;
+  Player(Point2d pos, float rot, SpriteRef sprite, std::optional<Box2d> ptl = std::nullopt);
   void act(float dt) override;
+  void arm(const std::unique_ptr<Weapon>& weap) { weapon = weap->copy(); }
 }; // Player
 
 

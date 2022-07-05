@@ -13,8 +13,11 @@ protected:
   float x_acc = 0, y_acc = 0;
   std::optional<Box2d> place_to_live = std::nullopt;
 public:
-  virtual void draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) = 0;
+  virtual void draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) {
+    (void)buffer; (void)screen_h; (void)screen_w;
+  }
   virtual void act(float dt);
+  virtual bool isInsideBox(const Box2d& box);
 
   virtual ~PhysicalObject() {};
 }; // PhysicalObject
