@@ -3,7 +3,7 @@
 
 enum {
   player_linear_accel = 10000,
-  player_linear_viscousity = 10,
+  player_linear_viscousity = 1000,
 };
 
 #ifdef DEBUG
@@ -37,6 +37,7 @@ void Player::draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) {
 
         // finally
         // TODO actual color addition??
+        // TODO antialiasing??
         buffer[i*screen_w + j] = sprite(point.y, point.x).toBGRA();
         // buffer[100 + 100*screen_w + i*screen_w + j] = sprite(i, j).toBGRA();
       }
@@ -44,13 +45,25 @@ void Player::draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) {
   }
 
 #ifdef DEBUG
-  for (int i = bounding_box.lt.y; i < bounding_box.rb.y; ++i) {
-    buffer[i*screen_w + bounding_box.lt.x] = green;
-    buffer[i*screen_w + bounding_box.rb.x-1] = green;
+  if (bounding_box.lt.x < screen_w) {
+    for (int i = bounding_box.lt.y; i < bounding_box.rb.y; ++i) {
+      buffer[i*screen_w + bounding_box.lt.x] = green;
+    }
   }
-  for (int j = bounding_box.lt.x; j < bounding_box.rb.x; ++j) {
-    buffer[bounding_box.lt.y*screen_w + j] = green;
-    buffer[(bounding_box.rb.y-1)*screen_w + j] = green;
+  if (bounding_box.rb.x > 0) {
+    for (int i = bounding_box.lt.y; i < bounding_box.rb.y; ++i) {
+      buffer[i*screen_w + bounding_box.rb.x-1] = green;
+    }
+  }
+  if (bounding_box.lt.y < screen_h) {
+    for (int j = bounding_box.lt.x; j < bounding_box.rb.x; ++j) {
+      buffer[bounding_box.lt.y*screen_w + j] = green;
+    }
+  }
+  if (bounding_box.rb.y > 0) {
+    for (int j = bounding_box.lt.x; j < bounding_box.rb.x; ++j) {
+      buffer[(bounding_box.rb.y-1)*screen_w + j] = green;
+    }
   }
 #endif
 }
@@ -74,8 +87,8 @@ void Player::act(float dt) {
     x_acc /= 1.4142;
     y_acc /= 1.4142;
   }
-  x_acc -= player_linear_viscousity * x_vel;
-  y_acc -= player_linear_viscousity * y_vel;
+  x_acc -= player_linear_viscousity * x_vel * dt;
+  y_acc -= player_linear_viscousity * y_vel * dt;
   PhysicalObject::act(dt);
   // TODO round??
   pos.x = x_frac;

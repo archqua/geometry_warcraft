@@ -1,5 +1,7 @@
 #include "geometry.h"
 
+#include <fstream>
+#include <string>
 #include <cmath>
 
 float Point2d::angle(Point2d other) const {
@@ -47,34 +49,6 @@ Box2d boundingBox2d(const Rectangle& rect)
   return boundingBox2d<4>(rect.points);
 }
 
-template <unsigned n_points>
-Box2d boundingBox2d(const Point2d points[n_points]) {
-  int minx = points[0].x;
-  int maxx = points[0].x;
-  int miny = points[0].y;
-  int maxy = points[0].y;
-  for (const Point2d *point = points; point != points + n_points; ++point) {
-    if (point->x < minx) {
-      minx = point->x;
-    } else if (point->x > maxx) {
-      maxx = point->x;
-    }
-    if (point->y < miny) {
-      miny = point->y;
-    } else if (point->y > maxy) {
-      maxy = point->y;
-    }
-  }
-  return Box2d{
-    .lt = Point2d{
-      .y = miny, .x = minx,
-    },
-    .rb = Point2d{
-      .y = maxy, .x = maxx,
-    },
-  };
-}
-
 Rectangle::Rectangle(Box2d box) {
   points[0] = box.lt;
   points[1] = Point2d{.y = box.rb.y, .x = box.lt.x};
@@ -89,6 +63,21 @@ bool Rectangle::contains(Point2d point) const {
     }
   }
   return true;
+}
+
+bool Triangle::contains(Point2d point) const {
+  // points are counter-clockwise
+  for (unsigned i = 0; i < 3; ++i) {
+    Point2d diff90 = (points[(i+1)%3] - points[i]).rot90();
+    if (diff90.dot(point - points[i]) < 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool Sphere::contains(Point2d point) const {
+  return (point - center).length() < radius;
 }
 
 Translation Rectangle::translate_(Point2d shift) {
@@ -124,6 +113,9 @@ Point2d Translation::operator()(Point2d point) const {
 Point2d Rotation::operator()(Point2d point) const {
   // TODO rounding instead of (int)???
   return Point2d{
+    // rounding causes segfault
+    // .y = (int)roundf(-point.x*s + point.y*c),
+    // .x = (int)roundf(point.x*c + point.y*s),
     .y = (int)(-point.x*s + point.y*c),
     .x = (int)(point.x*c + point.y*s),
   };
@@ -143,5 +135,115 @@ void Box2d::intersect_(const Box2d& other) {
   }
   if (rb.x > other.rb.x) {
     rb.x = other.rb.x;
+  }
+}
+
+bool Rectangle::collides(const Rectangle& other) const {
+  return ::collides<4, 4>(points, other.points);
+}
+
+bool Rectangle::collides(const Triangle& triangle) const {
+  return ::collides<4, 3>(points, triangle.points);
+}
+
+bool Rectangle::collides(const Sphere& sphere) const {
+  return sphere.collides(*this);
+}
+
+bool Triangle::collides(const Rectangle& rectangle) const {
+  return rectangle.collides(*this);
+}
+
+bool Triangle::collides(const Triangle& other) const {
+  return ::collides<3, 3>(points, other.points);
+}
+
+bool Triangle::collides(const Sphere& sphere) const {
+  return sphere.collides(*this);
+}
+
+// bool Sphere::collides(const Rectangle& rectangle) const {
+//   return collides<Rectangle>(rectangle);
+// }
+
+// bool Sphere::collides(const Triangle& triangle) const {
+//   return collides<Triangle>(triangle);
+// }
+
+bool Sphere::collides(const Sphere& other) const {
+  return (center - other.center).length() > (radius + other.radius);
+}
+
+[[noreturn]] void UNREACHABLE() {
+  throw "unreachable";
+}
+
+bool Rectangle::collides(const CollisionShape& other, Type _type) const {
+  switch(_type) {
+    case Type::unknown:
+      return other.collides(*this, this->type);
+    case Type::rectangle:
+      return collides(static_cast<const Rectangle&>(other));
+    case Type::triangle:
+      return collides(static_cast<const Triangle&>(other));
+    case Type::sphere:
+      return collides(static_cast<const Sphere&>(other));
+  }
+  UNREACHABLE();
+}
+
+bool Triangle::collides(const CollisionShape& other, Type _type) const {
+  switch(_type) {
+    case Type::unknown:
+      return other.collides(*this, this->type);
+    case Type::rectangle:
+      return collides(static_cast<const Rectangle&>(other));
+    case Type::triangle:
+      return collides(static_cast<const Triangle&>(other));
+    case Type::sphere:
+      return collides(static_cast<const Sphere&>(other));
+  }
+  UNREACHABLE();
+}
+
+bool Sphere::collides(const CollisionShape& other, Type _type) const {
+  switch(_type) {
+    case Type::unknown:
+      return other.collides(*this, this->type);
+    case Type::rectangle:
+      return collides(static_cast<const Rectangle&>(other));
+    case Type::triangle:
+      return collides(static_cast<const Triangle&>(other));
+    case Type::sphere:
+      return collides(static_cast<const Sphere&>(other));
+  }
+  UNREACHABLE();
+}
+
+std::unique_ptr<CollisionShape> collision_shape::readFromStream(std::istream& is)
+{
+  std::string type;
+  if (getline(is, type)) {
+    if ("triangle" == type) {
+      std::unique_ptr<Triangle> triangle;
+      for (Point2d *point = triangle->points; point != triangle->points+3; ++point) {
+        is >> point->y >> point->x;
+      }
+      return triangle;
+    } else if ("rectangle" == type) {
+      std::unique_ptr<Rectangle> rectangle;
+      for (Point2d *point = rectangle->points; point != rectangle->points+3; ++point) {
+        is >> point->y >> point->x;
+      }
+      return rectangle;
+    } else if ("sphere" == type) {
+      std::unique_ptr<Sphere> sphere;
+      is >> sphere->center.y >> sphere->center.x >> sphere->radius;
+      return sphere;
+    } else {
+      throw SRError(type.data());
+    }
+  } else {
+    throw SRError(type.data());
   }
 }

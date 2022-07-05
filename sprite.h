@@ -71,13 +71,14 @@ Sprite Sprite::fromBinaryFile(const char *file)
     byte w[bitcount];
     fs.read((char*) h, bitcount);
     fs.read((char*) w, bitcount);
-    for (int i = 0; i < bitcount; ++i) {
+    for (unsigned i = 0; i < bitcount; ++i) {
       height += pow(256, i) * h[bitcount-1-i];
       width += pow(256, i) * w[bitcount-1-i];
     }
     Sprite res(height, width);
     try {
       for (PixelIterator iter = res.pixelsBegin(); iter != res.pixelsEnd(); ++iter) {
+        // I don't know why this works anymore
         fs.read((char*) &(iter->r), 1);
         fs.read((char*) &(iter->g), 1);
         fs.read((char*) &(iter->b), 1);

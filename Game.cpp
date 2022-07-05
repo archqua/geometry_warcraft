@@ -44,7 +44,13 @@ void initialize()
     log("\n");
     throw;
   }
-  std::unique_ptr<PhysicalObject> player = std::make_unique<Player>(Point2d{.y = 0, .x = 0}, 0, std::move(player_sprite));
+  std::unique_ptr<PhysicalObject> player = std::make_unique<Player>(
+      Point2d{.y = 0, .x = 0}, 0, std::move(player_sprite),
+      Box2d{
+        .lt=Point2d{.y=0, .x=0},
+        .rb=Point2d{.y=SCREEN_HEIGHT, .x=SCREEN_WIDTH},
+      }
+  );
   physical_objects.push_back(std::move(player));
 }
 
