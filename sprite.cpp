@@ -52,28 +52,54 @@
 //   }
 // }
 
-void Pixel::toArr(byte arr[4]) const {
-  arr[0] = this->r;
-  arr[1] = this->g;
-  arr[2] = this->b;
-  arr[3] = this->a;
+// void Pixel::toArr(byte arr[4]) const {
+//   arr[0] = this->r;
+//   arr[1] = this->g;
+//   arr[2] = this->b;
+//   arr[3] = this->a;
+// }
+
+// uint32_t Pixel::toRGBA() const {
+//   uint32_t res = 0;
+//   res ^= this->r;
+//   res ^= this->g << 8;
+//   res ^= this->b << 16;
+//   res ^= this->a << 24;
+//   return res;
+// }
+// uint32_t Pixel::toBGRA() const {
+//   uint32_t res = 0;
+//   res ^= this->b;
+//   res ^= this->g << 8;
+//   res ^= this->r << 16;
+//   res ^= this->a << 24;
+//   return res;
+// }
+
+namespace pixel {
+
+byte alpha(Pixel p) {
+  return (p & (255 << 24)) >> 24;
 }
 
-uint32_t Pixel::toRGBA() const {
-  uint32_t res = 0;
-  res ^= this->r;
-  res ^= this->g << 8;
-  res ^= this->b << 16;
-  res ^= this->a << 24;
-  return res;
+Pixel over(Pixel front, Pixel back) {
+  // TODO
+  byte front_arr[4], back_arr[4];
+  // undefined behaviour
+  *(Pixel*)front_arr = front;
+  *(Pixel*)back_arr = back;
+  float frontaf = front_arr[3]/255.;
+  // TODO pre-multiplied alpha??
+  for (int i = 0; i < 4; ++i) {
+    front_arr[i] *= frontaf;
+    back_arr[i] *= (1-frontaf);
+    front_arr[i] += back_arr[i];
+  }
+
+  // // undefined behaviour
+  return *(Pixel*)front_arr;
 }
-uint32_t Pixel::toBGRA() const {
-  uint32_t res = 0;
-  res ^= this->b;
-  res ^= this->g << 8;
-  res ^= this->r << 16;
-  res ^= this->a << 24;
-  return res;
+
 }
 
 Pixel Sprite::operator()(unsigned h, unsigned w) const {
@@ -119,7 +145,8 @@ void SpriteObject::draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) 
         // finally
         // TODO actual color addition??
         // TODO antialiasing??
-        buffer[i*screen_w + j] = (*sprite)(point.y, point.x).toBGRA();
+        buffer[i*screen_w + j] = pixel::over((*sprite)(point.y, point.x), buffer[i*screen_w + j]);
+        // buffer[i*screen_w + j] = (*sprite)(point.y, point.x).toBGRA();
         // buffer[100 + 100*screen_w + i*screen_w + j] = sprite(i, j).toBGRA();
       }
     }

@@ -12,12 +12,13 @@
 
 using byte = unsigned char;
 
-struct Pixel {
-  byte r, g, b, a;
-  void toArr(byte arr[4]) const;
-  uint32_t toRGBA() const;
-  uint32_t toBGRA() const;
-};
+using Pixel = uint32_t;
+namespace pixel {
+
+byte alpha(Pixel);
+Pixel over(Pixel, Pixel);
+
+}
 
 class Sprite {
   std::vector<Pixel> pixels;
@@ -82,10 +83,15 @@ Sprite Sprite::fromBinaryFile(const char *file)
     try {
       for (PixelIterator iter = res.pixelsBegin(); iter != res.pixelsEnd(); ++iter) {
         // I don't know why this works anymore
-        fs.read((char*) &(iter->r), 1);
-        fs.read((char*) &(iter->g), 1);
-        fs.read((char*) &(iter->b), 1);
-        fs.read((char*) &(iter->a), 1);
+        byte b;
+        fs.read((char*) &(b), 1); // red
+        *iter ^= ((Pixel)b << 16);
+        fs.read((char*) &(b), 1); // green
+        *iter ^= ((Pixel)b << 8);
+        fs.read((char*) &(b), 1); // blue
+        *iter ^= ((Pixel)b);
+        fs.read((char*) &(b), 1); // alpha
+        *iter ^= ((Pixel)b << 24);
       }
     return res;
     } catch (const std::ios_base::failure&) {
