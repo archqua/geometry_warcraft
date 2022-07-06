@@ -126,7 +126,7 @@ void SpriteObject::draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) 
   }
 
 #ifdef DEBUG
-  if (bounding_box.lt.x < screen_w) {
+  if (bounding_box.lt.x < (int)screen_w) {
     for (int i = bounding_box.lt.y; i < bounding_box.rb.y; ++i) {
       buffer[i*screen_w + bounding_box.lt.x] = green;
     }
@@ -136,7 +136,7 @@ void SpriteObject::draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) 
       buffer[i*screen_w + bounding_box.rb.x-1] = green;
     }
   }
-  if (bounding_box.lt.y < screen_h) {
+  if (bounding_box.lt.y < (int)screen_h) {
     for (int j = bounding_box.lt.x; j < bounding_box.rb.x; ++j) {
       buffer[bounding_box.lt.y*screen_w + j] = green;
     }

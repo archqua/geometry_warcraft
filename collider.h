@@ -3,6 +3,7 @@
 #define COLLIDER_H_SENTRY
 
 #include "geometry.h"
+#include "sprite.h"
 #include <fstream>
 #include <string>
 #include <vector>
@@ -37,9 +38,12 @@ public:
   };
 };
 
-class CollisionObject {
+class CollisionObject : public SpriteObject {
   std::vector<std::unique_ptr<Collider>> colliders;
 public:
+  CollisionObject() = default;
+  CollisionObject(Point2d pos, float rot, SpriteRef sprite, std::optional<Box2d> ptl = std::nullopt)
+    : SpriteObject(pos, rot, std::move(sprite), std::move(ptl)) {}
   void add(std::unique_ptr<Collider> collider) { colliders.push_back(std::move(collider)); }
   const Collider& operator[](unsigned i) const { return *colliders[i]; }
   Collider& operator[](unsigned i) { return *colliders[i]; }

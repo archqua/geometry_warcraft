@@ -112,10 +112,15 @@ protected:
   float rot;
   SpriteRef sprite;
 public:
+  SpriteObject() = default;
   // SpriteObject(Point2d pos, float rot, std::shared_ptr<Sprite> sprite)
   //   : pos(pos), rot(rot), sprite(std::move(sprite)) {}
-  SpriteObject(Point2d pos, float rot, SpriteRef sprite)
-    : pos(pos), rot(rot), sprite(std::move(sprite)) {}
+  SpriteObject(Point2d pos, float rot, SpriteRef sprite, std::optional<Box2d> ptl = std::nullopt)
+    : PhysicalObject(std::move(ptl)), pos(pos), rot(rot), sprite(std::move(sprite))
+  {
+    y_frac = pos.y;
+    x_frac = pos.x;
+  }
   void draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) override;
   void act(float dt) override;
 };

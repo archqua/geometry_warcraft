@@ -13,6 +13,8 @@ protected:
   float x_acc = 0, y_acc = 0;
   std::optional<Box2d> place_to_live = std::nullopt;
 public:
+  PhysicalObject() = default;
+  PhysicalObject(std::optional<Box2d> ptl): place_to_live(std::move(ptl)) {}
   virtual void draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) {
     (void)buffer; (void)screen_h; (void)screen_w;
   }

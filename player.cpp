@@ -42,13 +42,6 @@ Point2d Player::move(float dt) {
   return cursor;
 }
 
-#include "log.h"
-void Player::fire(Point2d cursor) {
-  if (weapon->isReady()) {
-    cooldowner = weapon->fire(pos, cursor, Point2d{.y = (int)y_vel, .x = (int)x_vel});
-  }
-}
-
 void Player::act(float dt) {
   Point2d cursor = move(dt);
   if (is_mouse_button_pressed(0)) {
@@ -57,9 +50,8 @@ void Player::act(float dt) {
 }
 
 Player::Player(Point2d pos, float rot, SpriteRef sprite, std::optional<Box2d> ptl)
-  : SpriteObject(pos, rot, std::move(sprite))
+  : ArmedObject(pos, rot, std::move(sprite), std::move(ptl))
 {
-  place_to_live = ptl;
   for (std::unique_ptr<Collider>& col : static_cast<CollisionObject&>(*this)) {
     col->setReceiveOn(static_cast<unsigned>(Collider::Mask::player));
   }

@@ -6,6 +6,7 @@
 #include "geometry.h"
 #include "physical_object.h"
 #include "sprite.h"
+#include "collider.h"
 #include <list>
 #include <iterator>
 #include <vector>
@@ -73,13 +74,13 @@ public:
 
 namespace projectile {
 
-class Simple : public SpriteObject {
+class Simple : public CollisionObject {
   static SpriteRef sprite;
   static constexpr unsigned default_velocity = 2000;
 public:
   const unsigned velocity = default_velocity;
   Simple(Point2d pos, float rot, unsigned vel = default_velocity)
-    : SpriteObject(pos, rot, sprite), velocity(vel) {}
+    : CollisionObject(pos, rot, sprite), velocity(vel) {}
   friend weapon::Simple;
   friend Armory;
 };
@@ -88,6 +89,17 @@ public:
 
 } // weapon
 
+class ArmedObject : public CollisionObject {
+protected:
+  virtual void fire(Point2d cursor);
+  std::future<void> cooldowner;
+  std::unique_ptr<Weapon> weapon;
+public:
+  ArmedObject() = default;
+  ArmedObject(Point2d pos, float rot, SpriteRef sprite, std::optional<Box2d> ptl = std::nullopt)
+    : CollisionObject(pos, rot, std::move(sprite), std::move(ptl)) {}
+  virtual void arm(const std::unique_ptr<Weapon>& weap) { weapon = weap->copy(); }
+};
 
 
 

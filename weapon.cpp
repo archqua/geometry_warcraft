@@ -70,3 +70,12 @@ Simple& Simple::setReady() {
 }
 
 } // weapon
+
+
+
+void ArmedObject::fire(Point2d cursor) {
+  if (weapon && weapon->isReady()) {
+    cooldowner = weapon->fire(pos, cursor, Point2d{.y = (int)y_vel, .x = (int)x_vel});
+  }
+}
+
