@@ -7,6 +7,7 @@
 #include "physical_object.h"
 #include "sprite.h"
 #include "player.h"
+#include "enemy.h"
 #include "log.h"
 #include <list>
 #include <vector>
@@ -23,6 +24,7 @@
 //  schedule_quit_game() - quit game after act()
 
 const char *player_sprite_file = "sprites/player.b";
+const char *sphere_sprite_file = "sprites/sphere.b";
 
 Armory armory;
 
@@ -31,7 +33,6 @@ std::list<std::unique_ptr<PhysicalObject>> physical_objects;
 // initialize game data in this function
 void initialize()
 {
-  // physical_objects.push_back(std::make_unique<PhysicalObject>());
   try {
     armory.load(std::insert_iterator<decltype(physical_objects)>(physical_objects, physical_objects.begin()));
   } catch (const Sprite::FOError& err) {
@@ -41,6 +42,7 @@ void initialize()
     log("failed to read ", err.what(), "\n");
     throw;
   }
+
   SpriteRef player_sprite(0,0);
   try {
     *player_sprite = Sprite::fromBinaryFile(player_sprite_file);
@@ -51,15 +53,35 @@ void initialize()
     log("failed to read ", err.what(), "\n");
     throw;
   }
-  std::unique_ptr<PhysicalObject> player = std::make_unique<Player>(
-      Point2d{.y = 0, .x = 0}, 0, std::move(player_sprite),
+  std::unique_ptr<Player> player = std::make_unique<Player>(
+      Point2d{.y = SCREEN_HEIGHT/2, .x = SCREEN_WIDTH/2}, 0, std::move(player_sprite),
       Box2d{
         .lt=Point2d{.y=0, .x=0},
         .rb=Point2d{.y=SCREEN_HEIGHT, .x=SCREEN_WIDTH},
       }
   );
-  static_cast<Player*>(player.get())->arm(armory[0]);
+  player->arm(armory[0]);
   physical_objects.push_back(std::move(player));
+
+  SpriteRef sphere_sprite(0,0);
+  try {
+    *sphere_sprite = Sprite::fromBinaryFile(sphere_sprite_file);
+  } catch (const Sprite::FOError& err) {
+    log("failed to open ", err.what(), "\n");
+    throw;
+  } catch (const Sprite::FRError& err) {
+    log("failed to read ", err.what(), "\n");
+    throw;
+  }
+  std::unique_ptr<enemy::Sphere> sphere = std::make_unique<enemy::Sphere>(
+      Point2d{.y = 50, .x = 50}, 0, std::move(sphere_sprite),
+      Box2d{
+        .lt=Point2d{.y=0, .x=0},
+        .rb=Point2d{.y=SCREEN_HEIGHT, .x=SCREEN_WIDTH},
+      }
+  );
+  sphere->arm(armory[2]);
+  physical_objects.push_back(std::move(sphere));
 }
 
 // this function is called to update game data,

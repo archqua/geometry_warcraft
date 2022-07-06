@@ -35,6 +35,7 @@ public:
   }
   enum struct Mask : unsigned {
     player=0,
+    enemy=1,
   };
 };
 

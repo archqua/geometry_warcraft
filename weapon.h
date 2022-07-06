@@ -23,6 +23,7 @@ protected:
   ProjectileInserter projectile_inserter;
 public:
   Weapon(ProjectileInserter pi): projectile_inserter(pi) {}
+  Weapon(const Weapon&) = default;
   virtual std::future<void> fire(Point2d from, Point2d to, Point2d base_velocity) {
     (void)from; (void)to; (void)base_velocity;
     return std::async([](){});
@@ -54,22 +55,56 @@ public:
 
 namespace weapon {
 
-class Simple : public Weapon {
-  static constexpr unsigned default_cooldown = 300; // ms
+class Basic : public Weapon {
   std::mutex mx;
   bool ready = true;
 public:
-  const unsigned cooldown = default_cooldown;
-  Simple(Weapon::ProjectileInserter pi, unsigned cd = default_cooldown): Weapon(pi), cooldown(cd) {}
-  Simple(const Simple& other): Weapon(other.projectile_inserter), cooldown(other.cooldown) {}
-  std::future<void> fire(Point2d from, Point2d to, Point2d base_velocity) override;
+  Basic(ProjectileInserter pi): Weapon(pi) {}
+  Basic(const Basic& other): Weapon(other.projectile_inserter) {}
   bool isReady() override;
-  std::unique_ptr<Weapon> copy() const override;
   using Lock = std::lock_guard<std::mutex>;
   Lock write();
   Lock read();
-  Simple& setUnready();
-  Simple& setReady();
+  Basic& setUnready();
+  Basic& setReady();
+};
+
+class Simple : public Basic {
+  static constexpr unsigned default_cooldown = 300; // ms
+public:
+  const unsigned cooldown = default_cooldown;
+  Simple(Weapon::ProjectileInserter pi, unsigned cd = default_cooldown): Basic(pi), cooldown(cd) {}
+  Simple(const Simple& other): Basic(other.projectile_inserter), cooldown(other.cooldown) {}
+  std::future<void> fire(Point2d from, Point2d to, Point2d base_velocity) override;
+  std::unique_ptr<Weapon> copy() const override;
+};
+
+class Random : public Basic {
+  static constexpr unsigned default_lo_cd = 212; // ms
+  static constexpr unsigned default_hi_cd = 424; // ms
+  static constexpr unsigned default_lo_vel = 1414;
+  static constexpr unsigned default_hi_vel = 2828;
+public:
+  const unsigned lo_cooldown = default_lo_cd;
+  const unsigned hi_cooldown = default_hi_cd;
+  const unsigned lo_velocity = default_lo_vel;
+  const unsigned hi_velocity = default_hi_vel;
+  Random(
+    Weapon::ProjectileInserter pi,
+    unsigned lo_cd = default_lo_cd, unsigned hi_cd = default_hi_cd,
+    unsigned lo_vel = default_lo_vel, unsigned hi_vel = default_hi_vel
+  )
+    : Basic(pi)
+    , lo_cooldown(lo_cd), hi_cooldown(hi_cd)
+    , lo_velocity(lo_vel), hi_velocity(hi_vel)
+  {}
+  Random(const Random& other)
+    : Basic(other.projectile_inserter)
+    , lo_cooldown(other.lo_cooldown), hi_cooldown(other.hi_cooldown)
+    , lo_velocity(other.lo_velocity), hi_velocity(other.hi_velocity)
+  {}
+  std::future<void> fire(Point2d from, Point2d to, Point2d base_velocity) override;
+  std::unique_ptr<Weapon> copy() const override;
 };
 
 namespace projectile {
@@ -82,6 +117,7 @@ public:
   Simple(Point2d pos, float rot, unsigned vel = default_velocity)
     : CollisionObject(pos, rot, sprite), velocity(vel) {}
   friend weapon::Simple;
+  friend weapon::Random;
   friend Armory;
 };
 
