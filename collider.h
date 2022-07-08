@@ -54,15 +54,6 @@ public:
   bool checkReceive(unsigned i) const { return receive_mask & (1 << i); }
   void setHit(CollisionMask m) { hit_mask = m; }
   void setReceive(CollisionMask m) { receive_mask = m; }
-  struct Callback {
-    virtual void operator()(Collider& hitter, Collider& receiver, int depth=0) {
-      (void)hitter; (void)receiver; (void)depth;
-    }
-    virtual ~Callback() {}
-  };
-  void collide(Collider& receiver, Callback& cb) {
-    if (hit_mask & receiver.receive_mask) cb(*this, receiver);
-  }
   enum struct MaskIdx : unsigned {
     player=0,
     enemy=1,
@@ -105,6 +96,14 @@ public:
   Iterator transformedEnd() { return transformed.end(); }
 
   void act(float dt) override; // update colliders
+
+  struct Callback {
+    virtual void operator()(CollisionObject& hitter, CollisionObject& receiver, int depth=0) {
+      (void)hitter; (void)receiver; (void)depth;
+    }
+    virtual ~Callback() {}
+  };
+  void collide(CollisionObject& receiver, Callback& cb);
 
   class Error {};
   class FOError: public Error {

@@ -183,7 +183,7 @@ bool Triangle::collides(const Sphere& sphere) const {
 // }
 
 bool Sphere::collides(const Sphere& other) const {
-  return (center - other.center).length() > (radius + other.radius);
+  return (center - other.center).length() < (radius + other.radius);
 }
 
 [[noreturn]] void UNREACHABLE() {

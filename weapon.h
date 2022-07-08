@@ -5,6 +5,7 @@
 
 #include "geometry.h"
 #include "physical_object.h"
+#include "physical_object_manager.h"
 #include "sprite.h"
 #include "collider.h"
 #include "semaphore.h"
@@ -67,17 +68,9 @@ public:
   // ArmedObject() = default;
   ArmedObject(Point2d pos, float rot, SpriteRef sprite, Cooldowner cdr, std::optional<Box2d> ptl = std::nullopt)
     : CollisionObject(pos, rot, std::move(sprite), std::move(ptl)), cooldowner(cdr) {}
-  virtual void arm(const std::unique_ptr<Weapon>& weap, CollisionMask hm, CollisionMask rm) {
-    std::optional<std::pair<Semaphore*, Semaphore*>> sw(std::nullopt);
-    if (weapon) {
-      sw = weapon->getUtilSemaphores();
-    }
-    weapon = weap->copy();
-    if (sw) {
-      weapon->setUtilSemaphores(*sw);
-    }
-    weaponSetColMasks(hm, rm);
-  }
+
+  virtual void arm(const std::unique_ptr<Weapon>& weap, CollisionMask hm, CollisionMask rm);
+
   virtual void weaponSetUtilSemaphores(const std::pair<Semaphore*, Semaphore*> sw) {
     weapon->setUtilSemaphores(sw);
   }
@@ -147,8 +140,8 @@ public:
   void setReceiveOn(unsigned i) override { return proj_col.setReceiveOn(i); }
   void setReceiveOff(unsigned i) override { return proj_col.setReceiveOff(i); }
   bool checkReceive(unsigned i) const override { return proj_col.checkReceive(i); }
-  void setHit(CollisionMask m) override { proj_col.checkHit(m); }
-  void setReceive(CollisionMask m) override { proj_col.checkReceive(m); }
+  void setHit(CollisionMask m) override { proj_col.setHit(m); }
+  void setReceive(CollisionMask m) override { proj_col.setReceive(m); }
   class RaceCondition {
   public:
     const char *what() { return "weapon::Simple: race condition"; }

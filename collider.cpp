@@ -20,6 +20,20 @@ CollisionMask receiveMask(Collider::Mask v) {
   return CollisionMask(static_cast<CollisionMask::BaseInt>(v));
 }
 
+void CollisionObject::collide(CollisionObject& receiver, Callback& cb) {
+  for (auto hiter = transformedBegin(); hiter != transformedEnd(); ++hiter) {
+    for (auto riter = receiver.transformedBegin(); riter != receiver.transformedEnd(); ++riter) {
+      if (hiter->hit_mask & riter->receive_mask) {
+        if (hiter->collision_shape->collides(*riter->collision_shape)) {
+          cb(*this, receiver);
+          goto BREAK;
+        }
+      }
+    }
+  }
+BREAK:;
+}
+
 #ifdef DEBUG
 void CollisionObject::draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) {
   SpriteObject::draw(buffer, screen_h, screen_w);

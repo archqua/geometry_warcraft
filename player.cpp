@@ -80,7 +80,7 @@ Player::Player(Point2d pos, float rot, SpriteRef sprite, Cooldowner cdr, std::op
 void Player::addCollisionShape(std::unique_ptr<CollisionShape> cs) {
   CollisionObject::addOrig(Collider(
     std::move(cs),
-    static_cast<unsigned>(Collider::MaskIdx::enemy),  // hit
-    static_cast<unsigned>(Collider::MaskIdx::player)  // receive
+    hitMask(Collider::Mask::enemy),
+    receiveMask(Collider::Mask::player)
   ));
 };

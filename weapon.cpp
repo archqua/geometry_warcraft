@@ -17,12 +17,18 @@ void Armory::load(PhysicalObjectManager *phom)
   // weapons.emplace_back(std::make_unique<weapon::Simple>(pi));
   // weapons.emplace_back(std::make_unique<weapon::Random>(pi));
   // weapons.emplace_back(std::make_unique<weapon::Random>(pi, 50, 250));
-  auto bulletrect = Collider(std::make_unique<Rectangle>(
-        Box2d{.lt=Point2d{.y=-20, .x=-10,}, .rb=Point2d{.y=20, .x=10,},}
+  // auto bulletrect = Collider(std::make_unique<Rectangle>(
+  //       Box2d{.lt=Point2d{.y=-20, .x=-10,}, .rb=Point2d{.y=20, .x=10,},}
+  // ));
+  // weapons.emplace_back(std::make_unique<weapon::Simple>(*phom, bulletrect));
+  // weapons.emplace_back(std::make_unique<weapon::Random>(*phom, bulletrect));
+  // weapons.emplace_back(std::make_unique<weapon::Random>(*phom, bulletrect, 50, 250));
+  auto bulletcirc = Collider(std::make_unique<Sphere>(
+        Point2d{.y=0, .x=0,}, 10.0
   ));
-  weapons.emplace_back(std::make_unique<weapon::Simple>(*phom, bulletrect));
-  weapons.emplace_back(std::make_unique<weapon::Random>(*phom, bulletrect));
-  weapons.emplace_back(std::make_unique<weapon::Random>(*phom, bulletrect, 50, 250));
+  weapons.emplace_back(std::make_unique<weapon::Simple>(*phom, bulletcirc));
+  weapons.emplace_back(std::make_unique<weapon::Random>(*phom, bulletcirc));
+  weapons.emplace_back(std::make_unique<weapon::Random>(*phom, bulletcirc, 50, 250));
 }
 
 namespace weapon {
@@ -71,7 +77,7 @@ std::future<void> Simple::fire(Point2d from, Point2d to, Point2d base_velocity) 
     projectile->addOrig(proj_col);
     // auto wr = ProjectileInsertWrap(std::move(projectile));
     // projectile_inserter = std::move(wr);
-    phom.prependObject(std::move(projectile));
+    phom.prependCollider(std::move(projectile));
     setUnready();
     return std::async(
       cooldown_fn,
@@ -101,9 +107,10 @@ std::future<void> Random::fire(Point2d from, Point2d to, Point2d base_velocity) 
     projectile->pos = from;
     projectile->y_frac = from.y;
     projectile->x_frac = from.x;
+    projectile->addOrig(proj_col);
     // auto wr = ProjectileInsertWrap(std::move(projectile));
     // projectile_inserter = std::move(wr);
-    phom.prependObject(std::move(projectile));
+    phom.prependCollider(std::move(projectile));
     unsigned cooldown = (unsigned)std::rand() % (hi_cooldown - lo_cooldown);
     cooldown += lo_cooldown;
     setUnready();
@@ -168,3 +175,14 @@ void ArmedObject::fire(Point2d cursor) {
   }
 }
 
+void ArmedObject::arm(const std::unique_ptr<Weapon>& weap, CollisionMask hm, CollisionMask rm) {
+  std::optional<std::pair<Semaphore*, Semaphore*>> sw(std::nullopt);
+  if (weapon) {
+    sw = weapon->getUtilSemaphores();
+  }
+  weapon = weap->copy();
+  if (sw) {
+    weapon->setUtilSemaphores(*sw);
+  }
+  weaponSetColMasks(hm, rm);
+}

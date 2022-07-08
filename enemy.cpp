@@ -14,8 +14,8 @@ Enemy::Enemy(Point2d pos, float rot, SpriteRef sprite, Cooldowner cdr, std::opti
 void Enemy::addCollisionShape(std::unique_ptr<CollisionShape> cs) {
   CollisionObject::addOrig(Collider(
     std::move(cs),
-    static_cast<unsigned>(Collider::MaskIdx::enemy),
-    static_cast<unsigned>(Collider::MaskIdx::player)
+    hitMask(Collider::Mask::player),
+    receiveMask(Collider::Mask::enemy)
   ));
 }
 

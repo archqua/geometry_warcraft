@@ -67,7 +67,7 @@ void initialize()
         }
     );
     player->arm(armory[0], hitMask(Collider::Mask::enemy), receiveMask(Collider::Mask::player));
-    auto player_handle = phom.appendSemaphoredObject(std::move(player));
+    auto player_handle = phom.appendSemaphoredCollider(std::move(player));
     auto sm = *player_handle->getSemaphore();
     static_cast<ArmedObject&>(**player_handle).weaponSetUtilSemaphores(
         std::make_pair(&sm->payload_semaphore, &sm->can_remove_semaphore)
@@ -94,7 +94,7 @@ void initialize()
         }
     );
     sphere->arm(armory[2], hitMask(Collider::Mask::player), receiveMask(Collider::Mask::enemy));
-    auto sphere_handle = phom.appendSemaphoredObject(std::move(sphere));
+    auto sphere_handle = phom.appendSemaphoredCollider(std::move(sphere));
     auto sm = *sphere_handle->getSemaphore();
     static_cast<ArmedObject&>(**sphere_handle).weaponSetUtilSemaphores(
       std::make_pair(&sm->payload_semaphore, &sm->can_remove_semaphore)
@@ -115,7 +115,10 @@ void act(float dt)
 
   // log(phom.objectCount(), " objects ");
   // log(phom.semaphoreCount(), " semaphores ");
-  // log(phom.futureCount(), " futures\n");
+  // log(phom.futureCount(), " futures ");
+  // log(phom.colliderCount(), " colliders\n");
+
+  // erase nonexistent
   {
     auto iter = phom.objectsBegin();
     while (iter != phom.objectsEnd()) {
@@ -129,7 +132,54 @@ void act(float dt)
       }
     }
   }
+  {
+    auto iter = phom.collidersBegin();
+    while (iter != phom.collidersEnd()) {
+      CollisionObject& obj = **iter;
+      if (!obj.isInsideBox(existential_box)) {
+        iter = phom.eraseCollider(iter);
+        continue;
+      } else {
+        ++iter;
+        continue;
+      }
+    }
+  }
 
+  // collide
+  {
+    auto hiter = phom.collidersBegin();
+    while (hiter != phom.collidersEnd()) {
+      CollisionObject& obj = **hiter;
+      if (!obj.isInsideBox(existential_box)) {
+        hiter = phom.eraseCollider(hiter);
+        continue;
+      } else {
+        auto riter = phom.collidersBegin();
+        while (riter != phom.collidersEnd()) {
+          if (hiter == riter) {
+            ++riter;
+            continue;
+          } else {
+            bool detected_collision = false;
+            PhysicalObjectManager::MutualRemovalCallback cb(phom, hiter, riter, detected_collision);
+            (*hiter)->collide(**riter, cb);
+            if (detected_collision) {
+              goto HITER_CONTINUE;
+            } else {
+              ++riter;
+              continue;
+            }
+          }
+        }
+        ++hiter;
+HITER_CONTINUE:
+        continue;
+      }
+    }
+  }
+
+  // clean up semaphores
   {
     auto iter = phom.semaphoresBegin();
     while (iter != phom.semaphoresEnd()) {
@@ -142,6 +192,7 @@ void act(float dt)
     }
   }
 
+  // clean up futures
   for (auto iter = phom.futuresBegin(); iter != phom.futuresEnd();) {
     if (iter->wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
       iter = phom.eraseFuture(iter);
@@ -150,8 +201,13 @@ void act(float dt)
     }
   }
 
+  // call act
   for (auto iter = phom.objectsBegin(); iter != phom.objectsEnd(); ++iter) {
     PhysicalObject& obj = **iter;
+    obj.act(dt);
+  }
+  for (auto iter = phom.collidersBegin(); iter != phom.collidersEnd(); ++iter) {
+    CollisionObject& obj = **iter;
     obj.act(dt);
   }
 
@@ -166,6 +222,11 @@ void draw()
 
   for (auto iter = phom.objectsBegin(); iter != phom.objectsEnd(); ++iter) {
     PhysicalObject& obj = **iter;
+    // undefined behaviour
+    obj.draw((uint32_t*)buffer, SCREEN_HEIGHT, SCREEN_WIDTH);
+  }
+  for (auto iter = phom.collidersBegin(); iter != phom.collidersEnd(); ++iter) {
+    CollisionObject& obj = **iter;
     // undefined behaviour
     obj.draw((uint32_t*)buffer, SCREEN_HEIGHT, SCREEN_WIDTH);
   }
