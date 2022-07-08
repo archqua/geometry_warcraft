@@ -45,6 +45,15 @@ public:
     availability_semaphore = sw.first;
     semaphore_removability_semaphore = sw.second;
   }
+
+  virtual void setHitOn(unsigned i) { (void)i; }
+  virtual void setHitOff(unsigned i) { (void)i; }
+  virtual bool checkHit(unsigned i) const = 0;
+  virtual void setReceiveOn(unsigned i) { (void)i; }
+  virtual void setReceiveOff(unsigned i) { (void)i; }
+  virtual bool checkReceive(unsigned i) const = 0;
+  virtual void setHit(CollisionMask m) { (void)m; }
+  virtual void setReceive(CollisionMask m) { (void)m; }
 };
 
 class ArmedObject : public CollisionObject {
@@ -58,7 +67,7 @@ public:
   // ArmedObject() = default;
   ArmedObject(Point2d pos, float rot, SpriteRef sprite, Cooldowner cdr, std::optional<Box2d> ptl = std::nullopt)
     : CollisionObject(pos, rot, std::move(sprite), std::move(ptl)), cooldowner(cdr) {}
-  virtual void arm(const std::unique_ptr<Weapon>& weap) {
+  virtual void arm(const std::unique_ptr<Weapon>& weap, CollisionMask hm, CollisionMask rm) {
     std::optional<std::pair<Semaphore*, Semaphore*>> sw(std::nullopt);
     if (weapon) {
       sw = weapon->getUtilSemaphores();
@@ -67,10 +76,25 @@ public:
     if (sw) {
       weapon->setUtilSemaphores(*sw);
     }
+    weaponSetColMasks(hm, rm);
   }
   virtual void weaponSetUtilSemaphores(const std::pair<Semaphore*, Semaphore*> sw) {
     weapon->setUtilSemaphores(sw);
   }
+  virtual void weaponSetColMasks(CollisionMask hit, CollisionMask receive) {
+    weapon->setHit(hit);
+    weapon->setReceive(receive);
+  }
+  virtual void weaponSetColMasks(Collider::Mask hit, Collider::Mask receive) {
+    weapon->setHit(static_cast<CollisionMask::BaseInt>(hit));
+    weapon->setReceive(static_cast<CollisionMask::BaseInt>(receive));
+  }
+  virtual void setHitOn(unsigned i) { weapon->setHitOn(i); }
+  virtual void setHitOff(unsigned i) { weapon->setHitOff(i); }
+  virtual bool checkHit(unsigned i) { return weapon->checkHit(i); }
+  virtual void setReceiveOn(unsigned i) { weapon->setReceiveOn(i); }
+  virtual void setReceiveOff(unsigned i) { weapon->setReceiveOff(i); }
+  virtual bool checkReceive(unsigned i) { return weapon->checkReceive(i); }
 };
 
 class Armory {
@@ -104,17 +128,27 @@ namespace weapon {
 
 class Basic : public Weapon {
   Semaphore ready_semaphore;
+protected:
+  Collider proj_col;
 public:
   // Basic(ProjectileInserter pi): Weapon(pi) {}
-  Basic(PhysicalObjectManager& phom): Weapon(phom) {}
+  Basic(PhysicalObjectManager& phom, Collider pc): Weapon(phom), proj_col(std::move(pc)) {}
   // Basic(const Basic& other): Weapon(other.projectile_inserter) {}
-  Basic(const Basic& other): Weapon(other.phom) {}
+  Basic(const Basic& other): Weapon(other.phom), proj_col(other.proj_col) {}
   bool isReady() override;
   // using Lock = std::lock_guard<std::mutex>;
   // Lock write();
   // Lock read();
   Basic& setUnready();
   Basic& setReady();
+  void setHitOn(unsigned i) override { return proj_col.setHitOn(i); }
+  void setHitOff(unsigned i) override { return proj_col.setHitOff(i); }
+  bool checkHit(unsigned i) const override { return proj_col.checkHit(i); }
+  void setReceiveOn(unsigned i) override { return proj_col.setReceiveOn(i); }
+  void setReceiveOff(unsigned i) override { return proj_col.setReceiveOff(i); }
+  bool checkReceive(unsigned i) const override { return proj_col.checkReceive(i); }
+  void setHit(CollisionMask m) override { proj_col.checkHit(m); }
+  void setReceive(CollisionMask m) override { proj_col.checkReceive(m); }
   class RaceCondition {
   public:
     const char *what() { return "weapon::Simple: race condition"; }
@@ -126,9 +160,10 @@ class Simple : public Basic {
 public:
   const unsigned cooldown = default_cooldown;
   // Simple(Weapon::ProjectileInserter pi, unsigned cd = default_cooldown): Basic(pi), cooldown(cd) {}
-  Simple(PhysicalObjectManager& phom, unsigned cd = default_cooldown): Basic(phom), cooldown(cd) {}
+  Simple(PhysicalObjectManager& phom, Collider pc, unsigned cd = default_cooldown)
+    : Basic(phom, std::move(pc)), cooldown(cd) {}
   // Simple(const Simple& other): Basic(other.projectile_inserter), cooldown(other.cooldown) {}
-  Simple(const Simple& other): Basic(other.phom), cooldown(other.cooldown) {}
+  Simple(const Simple& other): Basic(other.phom, other.proj_col), cooldown(other.cooldown) {}
   std::future<void> fire(Point2d from, Point2d to, Point2d base_velocity) override;
   std::unique_ptr<Weapon> copy() const override;
 };
@@ -136,8 +171,8 @@ public:
 class Random : public Basic {
   static constexpr unsigned default_lo_cd = 212; // ms
   static constexpr unsigned default_hi_cd = 424; // ms
-  static constexpr unsigned default_lo_vel = 1414;
-  static constexpr unsigned default_hi_vel = 2828;
+  static constexpr unsigned default_lo_vel = 200; // 1414;
+  static constexpr unsigned default_hi_vel = 800; // 2828;
 public:
   const unsigned lo_cooldown = default_lo_cd;
   const unsigned hi_cooldown = default_hi_cd;
@@ -153,11 +188,11 @@ public:
   //   , lo_velocity(lo_vel), hi_velocity(hi_vel)
   // {}
   Random(
-    PhysicalObjectManager& phom,
+    PhysicalObjectManager& phom, Collider pc,
     unsigned lo_cd = default_lo_cd, unsigned hi_cd = default_hi_cd,
     unsigned lo_vel = default_lo_vel, unsigned hi_vel = default_hi_vel
   )
-    : Basic(phom)
+    : Basic(phom, std::move(pc))
     , lo_cooldown(lo_cd), hi_cooldown(hi_cd)
     , lo_velocity(lo_vel), hi_velocity(hi_vel)
   {}
@@ -167,7 +202,7 @@ public:
   //   , lo_velocity(other.lo_velocity), hi_velocity(other.hi_velocity)
   // {}
   Random(const Random& other)
-    : Basic(other.phom)
+    : Basic(other.phom, other.proj_col)
     , lo_cooldown(other.lo_cooldown), hi_cooldown(other.hi_cooldown)
     , lo_velocity(other.lo_velocity), hi_velocity(other.hi_velocity)
   {}
@@ -179,7 +214,7 @@ namespace projectile {
 
 class Simple : public CollisionObject {
   static SpriteRef sprite;
-  static constexpr unsigned default_velocity = 2000;
+  static constexpr unsigned default_velocity = 1414; // 2000;
 public:
   const unsigned velocity = default_velocity;
   Simple(Point2d pos, float rot, unsigned vel = default_velocity)

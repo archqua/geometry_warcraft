@@ -66,7 +66,7 @@ void initialize()
           .rb=Point2d{.y=SCREEN_HEIGHT, .x=SCREEN_WIDTH},
         }
     );
-    player->arm(armory[0]);
+    player->arm(armory[0], hitMask(Collider::Mask::enemy), receiveMask(Collider::Mask::player));
     auto player_handle = phom.appendSemaphoredObject(std::move(player));
     auto sm = *player_handle->getSemaphore();
     static_cast<ArmedObject&>(**player_handle).weaponSetUtilSemaphores(
@@ -93,7 +93,7 @@ void initialize()
           .rb=Point2d{.y=SCREEN_HEIGHT, .x=SCREEN_WIDTH},
         }
     );
-    sphere->arm(armory[2]);
+    sphere->arm(armory[2], hitMask(Collider::Mask::player), receiveMask(Collider::Mask::enemy));
     auto sphere_handle = phom.appendSemaphoredObject(std::move(sphere));
     auto sm = *sphere_handle->getSemaphore();
     static_cast<ArmedObject&>(**sphere_handle).weaponSetUtilSemaphores(

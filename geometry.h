@@ -31,6 +31,7 @@ class TransformChain {
 public:
   void append(std::unique_ptr<Transform>);
   Point2d backward(Point2d point) const;
+  Point2d forward(Point2d point) const;
 };
 class Translation : public Transform {
   Point2d shift;
@@ -49,6 +50,7 @@ struct Box2d {
   Point2d lt, rb;
 
   void intersect_(const Box2d& other);
+  bool contains(Point2d point) const;
 };
 
 struct CollisionShape {
@@ -58,8 +60,15 @@ protected:
   } type;
 public:
   virtual bool collides(const CollisionShape& other, Type=Type::unknown) const = 0;
+  virtual std::unique_ptr<CollisionShape> copy() const = 0;
+  virtual std::unique_ptr<CollisionShape> transformed(const TransformChain& chain) const = 0;
   virtual ~CollisionShape() {}
+
+#ifdef DEBUG
+  virtual void draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) const = 0;
+#endif
 };
+
 namespace collision_shape {
 class Error {};
 class SRError : public Error {
@@ -69,7 +78,35 @@ public:
   const char *what() const { return type; }
 };
 std::unique_ptr<CollisionShape> readFromStream(std::istream&);
+template <unsigned n_points>
+Translation translate_(Point2d points[n_points], Point2d shift) {
+  auto fwd = Translation(shift);
+  for (Point2d *point = points; point != points+n_points; ++point) {
+    *point = fwd(*point);
+  }
+  return Translation(-shift);
+}
+template <unsigned n_points>
+Rotation rotate_(Point2d points[n_points], float rot) {
+  auto fwd = Rotation(rot);
+  for (Point2d *point = points; point != points+n_points; ++point) {
+    *point = fwd(*point);
+  }
+  return Rotation(-rot);
+}
+
+#ifdef DEBUG
+void drawLine(Point2d from, Point2d to, uint32_t *buffer, unsigned screen_h, unsigned screen_w);
+void drawCircle(Point2d center, float radius, uint32_t *buffer, unsigned screen_h, unsigned screen_w, float eps=0.1);
+template <unsigned n_points>
+void draw(const Point2d points[n_points], uint32_t *buffer, unsigned screen_h, unsigned screen_w) {
+  for (unsigned i = 0; i != n_points; ++i) {
+    drawLine(points[i], points[(i+1)%n_points], buffer, screen_h, screen_w);
+  }
+}
+#endif // DEBUG
 } // collision_shape
+
 // correct points layout is not ensured
 struct Triangle;
 struct Sphere;
@@ -79,6 +116,7 @@ private:
 public:
   Point2d points[4];
 
+  Rectangle() = default;
   Rectangle(Box2d);
 
   // returns inverse
@@ -92,6 +130,15 @@ public:
   bool collides(const Rectangle& other) const;
   bool collides(const Triangle& triangle) const;
   bool collides(const Sphere& sphere) const;
+
+  std::unique_ptr<CollisionShape> transformed(const TransformChain& chain) const override;
+  std::unique_ptr<CollisionShape> copy() const override { return transformed(TransformChain()); }
+
+#ifdef DEBUG
+  void draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) const override {
+    collision_shape::draw<4>(points, buffer, screen_h, screen_w);
+  }
+#endif
 };
 
 struct Triangle : CollisionShape {
@@ -100,12 +147,24 @@ private:
 public:
   Point2d points[3]; // counter-clockwise
 
+  Triangle() = default;
+  Triangle(Point2d f, Point2d s, Point2d t) { points[0]=f; points[1]=s; points[2]=t; }
+
   bool contains(Point2d point) const;
 
   bool collides(const CollisionShape& other, Type=Type::unknown) const override;
   bool collides(const Rectangle& rectangle) const;
   bool collides(const Triangle& other) const;
   bool collides(const Sphere& sphere) const;
+
+  std::unique_ptr<CollisionShape> transformed(const TransformChain& chain) const override;
+  std::unique_ptr<CollisionShape> copy() const override { return transformed(TransformChain()); }
+
+#ifdef DEBUG
+  void draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) const override {
+    collision_shape::draw<3>(points, buffer, screen_h, screen_w);
+  }
+#endif
 };
 
 struct Sphere : CollisionShape {
@@ -116,6 +175,9 @@ public:
   Point2d center;
   float radius;
 
+  Sphere() = default;
+  Sphere(Point2d c, float r): center(c), radius(r) {}
+
   bool contains(Point2d point) const;
   
   // bool collides(const Rectangle& rectangle) const;
@@ -124,6 +186,15 @@ public:
   bool collides(const Sphere& other) const;
   template <class T>
   bool collides(const T& shape) const;
+
+  std::unique_ptr<CollisionShape> transformed(const TransformChain& chain) const override;
+  std::unique_ptr<CollisionShape> copy() const override { return transformed(TransformChain()); }
+
+#ifdef DEBUG
+  void draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) const override {
+    collision_shape::drawCircle(center, radius, buffer, screen_h, screen_w);
+  }
+#endif
 };
 
 // 128 bits is seemingly enough to use reference??

@@ -5,9 +5,18 @@
 Enemy::Enemy(Point2d pos, float rot, SpriteRef sprite, Cooldowner cdr, std::optional<Box2d> ptl)
   : ArmedObject(pos, rot, std::move(sprite), cdr, std::move(ptl))
 {
-  for (std::unique_ptr<Collider>& col : static_cast<CollisionObject&>(*this)) {
-    col->setReceiveOn(static_cast<unsigned>(Collider::Mask::player));
+  for (auto iter = CollisionObject::origBegin(); iter != CollisionObject::origEnd(); ++iter) {
+    iter->setReceiveOn(static_cast<unsigned>(Collider::MaskIdx::enemy));
+    iter->setHitOn(static_cast<unsigned>(Collider::MaskIdx::player));
   }
+}
+
+void Enemy::addCollisionShape(std::unique_ptr<CollisionShape> cs) {
+  CollisionObject::addOrig(Collider(
+    std::move(cs),
+    static_cast<unsigned>(Collider::MaskIdx::enemy),
+    static_cast<unsigned>(Collider::MaskIdx::player)
+  ));
 }
 
 namespace enemy {
@@ -29,9 +38,7 @@ void Sphere::act(float dt) {
   y_vel = -cos(rot) * velocity;
   x_vel = -sin(rot) * velocity;
   // move
-  PhysicalObject::act(dt);
-  pos.y = y_frac;
-  pos.x = x_frac;
+  Enemy::act(dt);
   // fire
   if (weapon->isReady()) {
     float fire_ang = (rand() % 360) * M_PI / 180.0;
@@ -44,8 +51,13 @@ void Sphere::act(float dt) {
   }
 }
 
-Sphere::Sphere(Point2d pos, float rot, SpriteRef sprite, Cooldowner cdr, std::optional<Box2d> ptl)
+// Sphere::Sphere(Point2d pos, float rot, SpriteRef sprite, Cooldowner cdr, std::optional<Box2d> ptl)
+//   : Enemy(pos, rot, std::move(sprite), cdr, std::move(ptl))
+// { }
+Sphere::Sphere(Point2d pos, float rot, SpriteRef sprite, Cooldowner cdr, std::optional<Box2d> ptl, float collision_radius)
   : Enemy(pos, rot, std::move(sprite), cdr, std::move(ptl))
-{ }
+{
+  Enemy::addCollisionShape(std::make_unique<::Sphere>(Point2d{.y=0, .x=0}, collision_radius));
+}
 
 }

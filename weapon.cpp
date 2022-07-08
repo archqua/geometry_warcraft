@@ -17,9 +17,12 @@ void Armory::load(PhysicalObjectManager *phom)
   // weapons.emplace_back(std::make_unique<weapon::Simple>(pi));
   // weapons.emplace_back(std::make_unique<weapon::Random>(pi));
   // weapons.emplace_back(std::make_unique<weapon::Random>(pi, 50, 250));
-  weapons.emplace_back(std::make_unique<weapon::Simple>(*phom));
-  weapons.emplace_back(std::make_unique<weapon::Random>(*phom));
-  weapons.emplace_back(std::make_unique<weapon::Random>(*phom, 50, 250));
+  auto bulletrect = Collider(std::make_unique<Rectangle>(
+        Box2d{.lt=Point2d{.y=-20, .x=-10,}, .rb=Point2d{.y=20, .x=10,},}
+  ));
+  weapons.emplace_back(std::make_unique<weapon::Simple>(*phom, bulletrect));
+  weapons.emplace_back(std::make_unique<weapon::Random>(*phom, bulletrect));
+  weapons.emplace_back(std::make_unique<weapon::Random>(*phom, bulletrect, 50, 250));
 }
 
 namespace weapon {
@@ -65,6 +68,7 @@ std::future<void> Simple::fire(Point2d from, Point2d to, Point2d base_velocity) 
     projectile->pos = from;
     projectile->y_frac = from.y;
     projectile->x_frac = from.x;
+    projectile->addOrig(proj_col);
     // auto wr = ProjectileInsertWrap(std::move(projectile));
     // projectile_inserter = std::move(wr);
     phom.prependObject(std::move(projectile));

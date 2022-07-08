@@ -81,19 +81,21 @@ bool Sphere::contains(Point2d point) const {
 }
 
 Translation Rectangle::translate_(Point2d shift) {
-  auto trans = Translation(shift);
-  for (Point2d *point = points; point < points+4; ++point) {
-    *point = trans(*point);
-  }
-  return Translation(-shift);
+  // auto trans = Translation(shift);
+  // for (Point2d *point = points; point < points+4; ++point) {
+  //   *point = trans(*point);
+  // }
+  // return Translation(-shift);
+  return collision_shape::translate_<4>(points, shift);
 }
 
 Rotation Rectangle::rotate_(float rot) {
-  auto rota = Rotation(rot);
-  for (Point2d *point = points; point < points+4; ++point) {
-    *point = rota(*point);
-  }
-  return Rotation(-rot);
+  // auto rota = Rotation(rot);
+  // for (Point2d *point = points; point < points+4; ++point) {
+  //   *point = rota(*point);
+  // }
+  // return Rotation(-rot);
+  return collision_shape::rotate_<4>(points, rot);
 }
 
 void TransformChain::append(std::unique_ptr<Transform> transform) {
@@ -101,6 +103,12 @@ void TransformChain::append(std::unique_ptr<Transform> transform) {
 }
 Point2d  TransformChain::backward(Point2d point) const {
   for (auto biter = transforms.rbegin(); biter != transforms.rend(); ++biter) {
+    point = (**biter)(point);
+  }
+  return point;
+}
+Point2d  TransformChain::forward(Point2d point) const {
+  for (auto biter = transforms.begin(); biter != transforms.end(); ++biter) {
     point = (**biter)(point);
   }
   return point;
@@ -136,6 +144,10 @@ void Box2d::intersect_(const Box2d& other) {
   if (rb.x > other.rb.x) {
     rb.x = other.rb.x;
   }
+}
+
+bool Box2d::contains(Point2d point) const {
+  return lt.y <= point.y && lt.x <= point.x && rb.y > point.y && rb.x > point.x;
 }
 
 bool Rectangle::collides(const Rectangle& other) const {
@@ -247,3 +259,73 @@ std::unique_ptr<CollisionShape> collision_shape::readFromStream(std::istream& is
     throw SRError(type.data());
   }
 }
+
+std::unique_ptr<CollisionShape> Rectangle::transformed(const TransformChain& chain) const {
+  auto res = std::make_unique<Rectangle>();
+  const Point2d *src = points;
+  Point2d *dst = res->points;
+  while (src != points+4) {
+    *dst++ = chain.forward(*src++);
+  }
+  return res;
+}
+
+std::unique_ptr<CollisionShape> Triangle::transformed(const TransformChain& chain) const {
+  auto res = std::make_unique<Triangle>();
+  const Point2d *src = points;
+  Point2d *dst = res->points;
+  while (src != points+3) {
+    *dst++ = chain.forward(*src++);
+  }
+  return res;
+}
+
+std::unique_ptr<CollisionShape> Sphere::transformed(const TransformChain& chain) const {
+  auto res = std::make_unique<Sphere>();
+  res->radius = radius;
+  res->center = chain.forward(center);
+  return res;
+}
+
+#ifdef DEBUG
+uint32_t red = 0 ^ (255 << 24) ^ (255 << 16);
+void collision_shape::drawLine(Point2d from, Point2d to, uint32_t *buffer, unsigned screen_h, unsigned screen_w)
+{
+  int tilt = (float)(to.y - from.y) / (float)(to.x - from.x);
+  Point2d arr[2] = {from, to};
+  Box2d bounding_box = boundingBox2d<2>(arr);
+  Box2d screen_box = Box2d{
+    .lt = Point2d{.y = 0, .x = 0},
+    .rb = Point2d{.y = (int)screen_h, .x = (int)screen_w},
+  };
+  bounding_box.intersect_(screen_box);
+  // this is super inefficient but who cares
+  for (int i = from.y; i != to.y; i += 1 - 2*((to.y - from.y) < 0)) {
+    int j = from.x + (float)(i - from.y) / tilt;
+      if (bounding_box.contains(Point2d{.y=i, .x=j,})) {
+        buffer[i*screen_w + j] = red;
+      }
+  }
+}
+
+void collision_shape::drawCircle(Point2d center, float radius, uint32_t *buffer, unsigned screen_h, unsigned screen_w, float eps) {
+  Box2d bounding_box = Box2d{
+    .lt = Point2d{.y = (int)(center.y - radius), .x = (int)(center.x - radius),},
+    .rb = Point2d{.y = (int)(center.y + radius), .x = (int)(center.x + radius),},
+  };
+  Box2d screen_box = Box2d{
+    .lt = Point2d{.y = 0, .x = 0},
+    .rb = Point2d{.y = (int)screen_h, .x = (int)screen_w},
+  };
+  bounding_box.intersect_(screen_box);
+  for (int i = bounding_box.lt.y; i < bounding_box.rb.y; ++i) {
+    for (int j = bounding_box.lt.x; j < bounding_box.rb.x; ++j) {
+      float dist2center = ((Point2d{.y=i, .x=j} - center).length()/radius);
+      if (dist2center < 1 && dist2center > 1-eps) {
+        buffer[i*screen_w + j] = red;
+      }
+    }
+  }
+}
+
+#endif // DEBUG

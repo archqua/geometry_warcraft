@@ -8,4 +8,4 @@ make && make clean
 ./main
 ```
 
-To see bounding boxes `make debug && make clean`.
+To see bounding boxes and collision shapes `make debug && make clean`.

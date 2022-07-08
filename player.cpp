@@ -2,7 +2,7 @@
 #include "Engine.h" // can I just do it like this???
 
 enum {
-  player_linear_accel = 14142,
+  player_linear_accel = 10000,
   player_linear_viscousity = 10,
 };
 
@@ -37,7 +37,7 @@ Point2d Player::move(float dt) {
   }
   x_acc -= player_linear_viscousity * x_vel;
   y_acc -= player_linear_viscousity * y_vel;
-  PhysicalObject::act(dt);
+  ArmedObject::act(dt);
   // TODO round??
   pos.x = x_frac;
   pos.y = y_frac;
@@ -59,10 +59,28 @@ void Player::act(float dt) {
   }
 }
 
-Player::Player(Point2d pos, float rot, SpriteRef sprite, Cooldowner cdr, std::optional<Box2d> ptl)
+// Player::Player(Point2d pos, float rot, SpriteRef sprite, Cooldowner cdr, std::optional<Box2d> ptl)
+//   : ArmedObject(pos, rot, std::move(sprite), cdr, std::move(ptl))
+// {
+//   for (auto iter = CollisionObject::origBegin(); iter != CollisionObject::origEnd(); ++iter) {
+//     iter->setReceiveOn(static_cast<unsigned>(Collider::Mask::player));
+//     iter->setHitOn(static_cast<unsigned>(Collider::Mask::player));
+//   }
+// }
+Player::Player(Point2d pos, float rot, SpriteRef sprite, Cooldowner cdr, std::optional<Box2d> ptl, float collision_radius)
   : ArmedObject(pos, rot, std::move(sprite), cdr, std::move(ptl))
 {
-  for (std::unique_ptr<Collider>& col : static_cast<CollisionObject&>(*this)) {
-    col->setReceiveOn(static_cast<unsigned>(Collider::Mask::player));
+  for (auto iter = CollisionObject::origBegin(); iter != CollisionObject::origEnd(); ++iter) {
+    iter->setReceiveOn(static_cast<unsigned>(Collider::MaskIdx::player));
+    iter->setHitOn(static_cast<unsigned>(Collider::MaskIdx::enemy));
   }
+  addCollisionShape(std::make_unique<Sphere>(Point2d{.y=0, .x=0}, collision_radius));
 }
+
+void Player::addCollisionShape(std::unique_ptr<CollisionShape> cs) {
+  CollisionObject::addOrig(Collider(
+    std::move(cs),
+    static_cast<unsigned>(Collider::MaskIdx::enemy),  // hit
+    static_cast<unsigned>(Collider::MaskIdx::player)  // receive
+  ));
+};

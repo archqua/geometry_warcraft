@@ -10,3 +10,5 @@ weapon.o: weapon.cpp weapon.h geometry.h physical_object.h semaphore.h \
  sprite.h collider.h
 enemy.o: enemy.cpp enemy.h weapon.h geometry.h physical_object.h \
  semaphore.h sprite.h collider.h
+collider.o: collider.cpp collider.h geometry.h sprite.h physical_object.h \
+ semaphore.h
