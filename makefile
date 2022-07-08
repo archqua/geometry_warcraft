@@ -2,7 +2,7 @@ SRCMODULES = Game.cpp  geometry.cpp  physical_object.cpp  player.cpp  sprite.cpp
 OBJMODULES = $(SRCMODULES:.cpp=.o)
 CXX = g++
 ifeq (debug, $(MAKECMDGOALS))
-CXXFLAGS = -O2 -Wall -Wextra -Werror -lX11 -DDEBUG
+CXXFLAGS = -O0 -g -Wall -Wextra -Werror -lX11 -DDEBUG
 else
 CXXFLAGS = -O2 -Wall -Wextra -Werror -lX11
 endif

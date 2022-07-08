@@ -6,52 +6,111 @@
 
 
 
-void Armory::load(Weapon::ProjectileInserter pi) {
+void Armory::load(PhysicalObjectManager *phom)
+  // : phom(phom)
+{
+  if (!phom) {
+    throw SegmentationFault();
+  }
   weapon::projectile::Simple::sprite = std::make_shared<Sprite>(Sprite::fromBinaryFile("sprites/bullet.b"));
-  weapons.push_back(std::make_unique<weapon::Simple>(pi));
-  weapons.push_back(std::make_unique<weapon::Random>(pi));
-  weapons.push_back(std::make_unique<weapon::Random>(pi, 50, 250));
+  // auto pi = phom->objectPrepender(); // projectile inserter
+  // weapons.emplace_back(std::make_unique<weapon::Simple>(pi));
+  // weapons.emplace_back(std::make_unique<weapon::Random>(pi));
+  // weapons.emplace_back(std::make_unique<weapon::Random>(pi, 50, 250));
+  weapons.emplace_back(std::make_unique<weapon::Simple>(*phom));
+  weapons.emplace_back(std::make_unique<weapon::Random>(*phom));
+  weapons.emplace_back(std::make_unique<weapon::Random>(*phom, 50, 250));
 }
 
 namespace weapon {
 
-void cooldown_fn(Basic& basic, unsigned cd /* ms */) {
+void cooldown_fn(
+  Basic& basic, unsigned cd /* ms */,
+  Semaphore *availability_semaphore, Semaphore *removability_semaphore
+) {
   // std::chrono::milliseconds dur(cd);
-  basic.setUnready();
   // void std::this_thread::sleep_for(dur);
   // TODO will it never break??
   usleep(cd * 1000);
-  basic.setReady();
+  if (!availability_semaphore) {
+    throw Basic::RaceCondition();
+  }
+  {
+    auto l = availability_semaphore->lock();
+    if (availability_semaphore->countUnsafe() > 0) {
+      basic.setReady();
+    }
+    // l.~Lock();
+  }
+  if (!removability_semaphore) {
+    throw Basic::RaceCondition();
+  }
+  removability_semaphore->dec();
 }
+// using ProjectileInsertWrap = PhysicalObjectManager::ObjectSmartHandle;
 std::future<void> Simple::fire(Point2d from, Point2d to, Point2d base_velocity) {
-  Point2d direction = to - from;
-  float rot = direction.angle(Point2d{.y = -1, .x = 0});
-  auto projectile = std::make_unique<projectile::Simple>(from, rot);
-  float normie = 1/direction.length();
-  projectile->y_vel = base_velocity.y + (normie * projectile->velocity) * direction.y;
-  projectile->x_vel = base_velocity.x + (normie * projectile->velocity) * direction.x;
-  projectile->pos = from;
-  projectile->y_frac = from.y;
-  projectile->x_frac = from.x;
-  projectile_inserter = std::move(projectile);
-  return std::async(cooldown_fn, std::ref(*this), cooldown);
+  // kinda unsafe w\o usage of availability_semaphore
+  if (!semaphore_removability_semaphore) {
+    throw RaceCondition();
+  }
+  auto l = semaphore_removability_semaphore->lock();
+  if (semaphore_removability_semaphore->countUnsafe() > 0) {
+    semaphore_removability_semaphore->incUnsafe();
+    Point2d direction = to - from;
+    float rot = direction.angle(Point2d{.y = -1, .x = 0});
+    auto projectile = std::make_unique<projectile::Simple>(from, rot);
+    float normie = 1/direction.length();
+    projectile->y_vel = base_velocity.y + (normie * projectile->velocity) * direction.y;
+    projectile->x_vel = base_velocity.x + (normie * projectile->velocity) * direction.x;
+    projectile->pos = from;
+    projectile->y_frac = from.y;
+    projectile->x_frac = from.x;
+    // auto wr = ProjectileInsertWrap(std::move(projectile));
+    // projectile_inserter = std::move(wr);
+    phom.prependObject(std::move(projectile));
+    setUnready();
+    return std::async(
+      cooldown_fn,
+      std::ref(*this), cooldown,
+      availability_semaphore, semaphore_removability_semaphore
+    );
+  } else {
+    return Basic::fire(from, to, base_velocity); // no-op
+  }
 }
 std::future<void> Random::fire(Point2d from, Point2d to, Point2d base_velocity) {
-  Point2d direction = to - from;
-  float rot = direction.angle(Point2d{.y = -1, .x = 0});
-  unsigned velocity = (unsigned)std::rand() % (hi_velocity - lo_velocity);
-  velocity += lo_velocity;
-  auto projectile = std::make_unique<projectile::Simple>(from, rot, velocity);
-  float normie = 1/direction.length();
-  projectile->y_vel = base_velocity.y + (normie * projectile->velocity) * direction.y;
-  projectile->x_vel = base_velocity.x + (normie * projectile->velocity) * direction.x;
-  projectile->pos = from;
-  projectile->y_frac = from.y;
-  projectile->x_frac = from.x;
-  projectile_inserter = std::move(projectile);
-  unsigned cooldown = (unsigned)std::rand() % (hi_cooldown - lo_cooldown);
-  cooldown += lo_cooldown;
-  return std::async(cooldown_fn, std::ref(*this), cooldown);
+  // kinda unsafe w\o usage of availability_semaphore
+  if (!semaphore_removability_semaphore) {
+    throw RaceCondition();
+  }
+  auto l = semaphore_removability_semaphore->lock();
+  if (semaphore_removability_semaphore->countUnsafe() > 0) {
+    semaphore_removability_semaphore->incUnsafe();
+    Point2d direction = to - from;
+    float rot = direction.angle(Point2d{.y = -1, .x = 0});
+    unsigned velocity = (unsigned)std::rand() % (hi_velocity - lo_velocity);
+    velocity += lo_velocity;
+    auto projectile = std::make_unique<projectile::Simple>(from, rot, velocity);
+    float normie = 1/direction.length();
+    projectile->y_vel = base_velocity.y + (normie * projectile->velocity) * direction.y;
+    projectile->x_vel = base_velocity.x + (normie * projectile->velocity) * direction.x;
+    projectile->pos = from;
+    projectile->y_frac = from.y;
+    projectile->x_frac = from.x;
+    // auto wr = ProjectileInsertWrap(std::move(projectile));
+    // projectile_inserter = std::move(wr);
+    phom.prependObject(std::move(projectile));
+    unsigned cooldown = (unsigned)std::rand() % (hi_cooldown - lo_cooldown);
+    cooldown += lo_cooldown;
+    setUnready();
+    return std::async(
+      cooldown_fn,
+      std::ref(*this), cooldown,
+      availability_semaphore, semaphore_removability_semaphore
+    );
+  } else {
+    return Basic::fire(from, to, base_velocity); // no-op
+  }
 }
 
 std::unique_ptr<Weapon> Simple::copy() const {
@@ -68,27 +127,30 @@ SpriteRef Simple::sprite;
 } // projectile
 
 bool Basic::isReady() {
-  auto l = read();
-  return ready;
+  // bool res = ready_semaphore.count() == 0;
+  // return res;
+  return ready_semaphore.count() == 0;
 }
 
-Basic::Lock Basic::read() {
-  return Lock(mx);
-}
+// Basic::Lock Basic::read() {
+//   return Lock(mx);
+// }
 
-Basic::Lock Basic::write() {
-  return Lock(mx);
-}
+// Basic::Lock Basic::write() {
+//   return Lock(mx);
+// }
 
 Basic& Basic::setUnready() {
-  auto l = write();
-  ready = false;
+  if (isReady()) {
+    ready_semaphore.inc();
+  }
   return *this;
 }
 
 Basic& Basic::setReady() {
-  auto l = write();
-  ready = true;
+  if (!isReady()) {
+    ready_semaphore.dec();
+  }
   return *this;
 }
 

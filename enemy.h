@@ -6,7 +6,7 @@
 
 class Enemy : public ArmedObject {
 public:
-  Enemy(Point2d pos, float rot, SpriteRef sprite, std::optional<Box2d> ptl = std::nullopt);
+  Enemy(Point2d pos, float rot, SpriteRef sprite, Cooldowner cdr, std::optional<Box2d> ptl = std::nullopt);
 };
 
 namespace enemy{
@@ -20,7 +20,7 @@ protected:
   static constexpr unsigned rot_vel_downtraction = 5;
   float rot_vel = 0;
 public:
-  Sphere(Point2d pos, float rot, SpriteRef sprite, std::optional<Box2d> ptl = std::nullopt);
+  Sphere(Point2d pos, float rot, SpriteRef sprite, Cooldowner cdr, std::optional<Box2d> ptl = std::nullopt);
   void act(float dt) override;
 };
 

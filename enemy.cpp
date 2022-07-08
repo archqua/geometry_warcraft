@@ -2,8 +2,8 @@
 #include <cmath>
 #include <cstdlib>
 
-Enemy::Enemy(Point2d pos, float rot, SpriteRef sprite, std::optional<Box2d> ptl)
-  : ArmedObject(pos, rot, std::move(sprite), std::move(ptl))
+Enemy::Enemy(Point2d pos, float rot, SpriteRef sprite, Cooldowner cdr, std::optional<Box2d> ptl)
+  : ArmedObject(pos, rot, std::move(sprite), cdr, std::move(ptl))
 {
   for (std::unique_ptr<Collider>& col : static_cast<CollisionObject&>(*this)) {
     col->setReceiveOn(static_cast<unsigned>(Collider::Mask::player));
@@ -26,8 +26,8 @@ void Sphere::act(float dt) {
   rot_vel -= dt * rot_vel * rot_vel_downtraction;
   rot += dt * rot_vel;
   // set velocity
-  y_vel = sin(rot) * velocity;
-  x_vel = cos(rot) * velocity;
+  y_vel = -cos(rot) * velocity;
+  x_vel = -sin(rot) * velocity;
   // move
   PhysicalObject::act(dt);
   pos.y = y_frac;
@@ -39,12 +39,13 @@ void Sphere::act(float dt) {
         .y = (int)(sin(fire_ang) * 100),
         .x = (int)(cos(fire_ang) * 100),
     };
+    // (void)target;
     fire(target);
   }
 }
 
-Sphere::Sphere(Point2d pos, float rot, SpriteRef sprite, std::optional<Box2d> ptl)
-  : Enemy(pos, rot, std::move(sprite), std::move(ptl))
+Sphere::Sphere(Point2d pos, float rot, SpriteRef sprite, Cooldowner cdr, std::optional<Box2d> ptl)
+  : Enemy(pos, rot, std::move(sprite), cdr, std::move(ptl))
 { }
 
 }

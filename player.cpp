@@ -8,6 +8,15 @@ enum {
 
 
 Point2d Player::move(float dt) {
+  // suicide
+  if (is_key_pressed(VK_SPACE)) {
+    pos.y = -300;
+    pos.x = -300;
+    y_frac = -300;
+    x_frac = -300;
+    return Point2d{.y=0, .x=0};
+  }
+
   x_acc = 0;
   y_acc = 0;
   if (is_key_pressed(VK_RIGHT)) {
@@ -45,12 +54,13 @@ Point2d Player::move(float dt) {
 void Player::act(float dt) {
   Point2d cursor = move(dt);
   if (is_mouse_button_pressed(0)) {
+    // (void)cursor;
     fire(cursor);
   }
 }
 
-Player::Player(Point2d pos, float rot, SpriteRef sprite, std::optional<Box2d> ptl)
-  : ArmedObject(pos, rot, std::move(sprite), std::move(ptl))
+Player::Player(Point2d pos, float rot, SpriteRef sprite, Cooldowner cdr, std::optional<Box2d> ptl)
+  : ArmedObject(pos, rot, std::move(sprite), cdr, std::move(ptl))
 {
   for (std::unique_ptr<Collider>& col : static_cast<CollisionObject&>(*this)) {
     col->setReceiveOn(static_cast<unsigned>(Collider::Mask::player));
