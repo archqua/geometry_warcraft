@@ -33,8 +33,10 @@ public:
   // void operator=(Sprite&& other) {
   //   pixels=std::move(other.pixels); height=other.height; width=other.width;
   // }
-  Pixel operator()(unsigned h, unsigned w) const;
+  // Pixel operator()(unsigned h, unsigned w) const;
   Pixel& operator()(unsigned h, unsigned w);
+  Pixel operator()(float h, float w) const;
+  // Pixel& operator()(float h, float w); // bruh
   unsigned getHeight() const { return height; }
   unsigned getWidth() const { return width; }
 

@@ -4,13 +4,6 @@
 #include <string>
 #include <cmath>
 
-float Point2d::angle(Point2d other) const {
-  float normalizer = 1.0/(this->length() * other.length());
-  float c = this->dot(other) * normalizer;
-  float s = this->rot90().dot(other) * normalizer;
-  float ang_mag = acos(c);
-  return (1 - 2*(s > 0)) * ang_mag;
-}
 
 // obscure
 Box2d boundingBox(const Box2d& square, float rot)
@@ -40,6 +33,10 @@ Box2d boundingBox(const Box2d& square, float rot)
 }
 
 Point2d operator*(float scalar, Point2d point)
+{
+  return point*scalar;
+}
+Point2dF operator*(float scalar, Point2dF point)
 {
   return point*scalar;
 }
@@ -81,53 +78,49 @@ bool Sphere::contains(Point2d point) const {
 }
 
 Translation Rectangle::translate_(Point2d shift) {
-  // auto trans = Translation(shift);
-  // for (Point2d *point = points; point < points+4; ++point) {
-  //   *point = trans(*point);
-  // }
-  // return Translation(-shift);
   return collision_shape::translate_<4>(points, shift);
+}
+TranslationF Rectangle::translatef_(Point2d shift) {
+  return collision_shape::translatef_<4>(points, shift);
 }
 
 Rotation Rectangle::rotate_(float rot) {
-  // auto rota = Rotation(rot);
-  // for (Point2d *point = points; point < points+4; ++point) {
-  //   *point = rota(*point);
-  // }
-  // return Rotation(-rot);
   return collision_shape::rotate_<4>(points, rot);
 }
-
-void TransformChain::append(std::unique_ptr<Transform> transform) {
-  transforms.push_back(std::move(transform));
-}
-Point2d  TransformChain::backward(Point2d point) const {
-  for (auto biter = transforms.rbegin(); biter != transforms.rend(); ++biter) {
-    point = (**biter)(point);
-  }
-  return point;
-}
-Point2d  TransformChain::forward(Point2d point) const {
-  for (auto biter = transforms.begin(); biter != transforms.end(); ++biter) {
-    point = (**biter)(point);
-  }
-  return point;
+RotationF Rectangle::rotatef_(float rot) {
+  return collision_shape::rotatef_<4>(points, rot);
 }
 
-Point2d Translation::operator()(Point2d point) const {
-  return point + shift;
-}
+// void TransformChain::append(std::unique_ptr<Transform> transform) {
+//   transforms.push_back(std::move(transform));
+// }
+// Point2d  TransformChain::backward(Point2d point) const {
+//   for (auto biter = transforms.rbegin(); biter != transforms.rend(); ++biter) {
+//     point = (**biter)(point);
+//   }
+//   return point;
+// }
+// Point2d  TransformChain::forward(Point2d point) const {
+//   for (auto biter = transforms.begin(); biter != transforms.end(); ++biter) {
+//     point = (**biter)(point);
+//   }
+//   return point;
+// }
 
-Point2d Rotation::operator()(Point2d point) const {
-  // TODO rounding instead of (int)???
-  return Point2d{
-    // rounding causes segfault
-    // .y = (int)roundf(-point.x*s + point.y*c),
-    // .x = (int)roundf(point.x*c + point.y*s),
-    .y = (int)(-point.x*s + point.y*c),
-    .x = (int)(point.x*c + point.y*s),
-  };
-}
+// Point2d Translation::operator()(Point2d point) const {
+//   return point + shift;
+// }
+
+// Point2d Rotation::operator()(Point2d point) const {
+//   // TODO rounding instead of (int)???
+//   return Point2d{
+//     // rounding causes segfault
+//     // .y = (int)roundf(-point.x*s + point.y*c),
+//     // .x = (int)roundf(point.x*c + point.y*s),
+//     .y = (int)(-point.x*s + point.y*c),
+//     .x = (int)(point.x*c + point.y*s),
+//   };
+// }
 
 // box might break
 void Box2d::intersect_(const Box2d& other) {

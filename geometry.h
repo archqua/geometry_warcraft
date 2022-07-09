@@ -7,44 +7,84 @@
 #include <memory>
 #include <iosfwd>
 
-struct Point2d {
-  int y, x;
-  void add_(Point2d other) { y += other.y; x += other.x; }
-  Point2d operator-() const { return Point2d{.y = -y, .x = -x}; }
-  Point2d operator+(Point2d other) const { return Point2d{.y = y + other.y, .x = x + other.x}; }
-  Point2d operator-(Point2d other) const { return (*this) + (-other); }
-  Point2d operator*(float scalar) const { return Point2d{.y = (int)(scalar*y), .x = (int)(scalar*x)}; }
-  int dot(Point2d other) const { return y*other.y + x*other.x; }
-  float angle(Point2d other) const;
+template <class F = int>
+struct TPoint2d {
+  F y, x;
+  void add_(TPoint2d other) { y += other.y; x += other.x; }
+  TPoint2d operator-() const { return TPoint2d{.y = -y, .x = -x}; }
+  TPoint2d operator+(TPoint2d other) const { return TPoint2d{.y = y + other.y, .x = x + other.x}; }
+  TPoint2d operator-(TPoint2d other) const { return (*this) + (-other); }
+  TPoint2d operator*(float scalar) const { return TPoint2d{.y = (F)(scalar*y), .x = (F)(scalar*x)}; }
+  int dot(TPoint2d other) const { return y*other.y + x*other.x; }
+  float angle(TPoint2d other) const {
+    float normalizer = 1.0/(this->length() * other.length());
+    float c = this->dot(other) * normalizer;
+    float s = this->rot90().dot(other) * normalizer;
+    float ang_mag = acos(c);
+    return (1 - 2*(s > 0)) * ang_mag;
+  }
   float length() const { return sqrt(this->dot(*this)); }
-  Point2d rot90() const { return Point2d{.y = -x, .x = y}; }
+  TPoint2d rot90() const { return TPoint2d{.y = -x, .x = y}; }
 };
+using Point2d = TPoint2d<int>;
+using Point2dF = TPoint2d<float>;
 Point2d operator*(float scalar, Point2d point);
+Point2dF operator*(float scalar, Point2dF point);
 
-class Transform{
+template <class F>
+class TTransform{
 public:
-  virtual Point2d operator()(Point2d x) const = 0;
-  virtual ~Transform() {}
+  virtual TPoint2d<F> operator()(TPoint2d<F> x) const = 0;
+  virtual ~TTransform() {}
 };
-class TransformChain {
-  std::vector<std::unique_ptr<Transform>> transforms;
+template <class F>
+class TTransformChain {
+  std::vector<std::unique_ptr<TTransform<F>>> transforms;
 public:
-  void append(std::unique_ptr<Transform>);
-  Point2d backward(Point2d point) const;
-  Point2d forward(Point2d point) const;
+  void append(std::unique_ptr<TTransform<F>> link) { transforms.push_back(std::move(link)); }
+  TPoint2d<F> backward(TPoint2d<F> point) const {
+    for (auto iter = transforms.rbegin(); iter != transforms.rend(); ++iter) {
+      point = (**iter)(point);
+    }
+    return point;
+  }
+  TPoint2d<F> forward(TPoint2d<F> point) const {
+    for (auto iter = transforms.begin(); iter != transforms.end(); ++iter) {
+      point = (**iter)(point);
+    }
+    return point;
+  }
 };
-class Translation : public Transform {
-  Point2d shift;
+template <class F>
+class TTranslation : public TTransform<F> {
+  TPoint2d<F> shift;
 public:
-  Translation(Point2d shift): shift(shift) {}
-  Point2d operator()(Point2d x) const override;
+  TTranslation(TPoint2d<F> shift): shift(shift) {}
+  TPoint2d<F> operator()(TPoint2d<F> point) const override {
+    return point + shift;
+  }
 };
-class Rotation : public Transform {
+template <class F>
+class TRotation : public TTransform<F> {
   float c, s; // cos and sin
 public:
-  Rotation(float rot): c(cos(rot)), s(sin(rot)) {}
-  Point2d operator()(Point2d x) const override;
+  TRotation(float rot): c(cos(rot)), s(sin(rot)) {}
+  TPoint2d<F> operator()(TPoint2d<F> point) const override {
+  return TPoint2d<F>{
+    .y = (F)(-point.x*s + point.y*c),
+    .x = (F)(point.x*c + point.y*s),
+  };
+}
 };
+
+using Transform = TTransform<int>;
+using TransformChain = TTransformChain<int>;
+using Translation = TTranslation<int>;
+using Rotation = TRotation<int>;
+using TransformF = TTransform<float>;
+using TransformChainF = TTransformChain<float>;
+using TranslationF = TTranslation<float>;
+using RotationF = TRotation<float>;
 
 struct Box2d {
   Point2d lt, rb;
@@ -94,6 +134,22 @@ Rotation rotate_(Point2d points[n_points], float rot) {
   }
   return Rotation(-rot);
 }
+template <unsigned n_points>
+TranslationF translatef_(Point2d points[n_points], Point2d shift) {
+  auto fwd = Translation(shift);
+  for (Point2d *point = points; point != points+n_points; ++point) {
+    *point = fwd(*point);
+  }
+  return TranslationF(Point2dF{.y=(float)-shift.y, .x=(float)-shift.x});
+}
+template <unsigned n_points>
+RotationF rotatef_(Point2d points[n_points], float rot) {
+  auto fwd = Rotation(rot);
+  for (Point2d *point = points; point != points+n_points; ++point) {
+    *point = fwd(*point);
+  }
+  return RotationF(-rot);
+}
 
 #ifdef DEBUG
 void drawLine(Point2d from, Point2d to, uint32_t *buffer, unsigned screen_h, unsigned screen_w);
@@ -121,8 +177,10 @@ public:
 
   // returns inverse
   Translation translate_(Point2d shift);
+  TranslationF translatef_(Point2d shift);
   // returns inverse
   Rotation rotate_(float rot);
+  RotationF rotatef_(float rot);
 
   bool contains(Point2d point) const;
 
