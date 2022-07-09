@@ -14,4 +14,8 @@ To see bounding boxes and collision shapes `make debug && make clean`.
 
 # Dependencies
 
-All you need is `libc`, `git`, `g++`, `make` and `libx11-dev`.
+## Runtime
+All you need is `libc`, and `libx11-dev`.
+
+## Build
+`g++` and `make`.
