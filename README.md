@@ -1,6 +1,6 @@
 # geometry\_warcraft
 
-![](geometry_warcreft_welcome.png)
+![](geometry_warcraft_welcome.png)
 
 # Usage
 ```
