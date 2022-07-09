@@ -8,6 +8,7 @@
 #include "sprite.h"
 #include "player.h"
 #include "enemy.h"
+#include "rand_mx.h"
 #include "log.h"
 #include <list>
 #include <unistd.h>
@@ -124,9 +125,16 @@ void spawnEnemies(unsigned interval /* ms */ = 1500)
 {
   unsigned seconds = interval / 1000;
   unsigned useconds = 1000 * (interval % 1000);
-  srand(time(NULL));
+  unsigned pos_idx = 0;
+  {
+    std::unique_lock rand_lock(rand_mx);
+    srand(time(NULL));
+  }
   while (enemy_spawn_semaphore.count()) {
-    unsigned pos_idx = rand() % (sizeof(enemy_spawn_locations)/sizeof(Point2d));
+    {
+      std::unique_lock rand_lock(rand_mx);
+      pos_idx = rand() % (sizeof(enemy_spawn_locations)/sizeof(Point2d));
+    }
     sleep(seconds);
     usleep(useconds);
     spawnSphere(enemy_spawn_locations[pos_idx]);

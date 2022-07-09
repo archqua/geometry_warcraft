@@ -1,4 +1,5 @@
 #include "weapon.h"
+#include "rand_mx.h"
 #include <cmath>
 #include <cstdlib>
 // #include <chrono>
@@ -98,8 +99,14 @@ std::future<void> Random::fire(Point2d from, Point2d to, Point2d base_velocity) 
     semaphore_removability_semaphore->incUnsafe();
     Point2d direction = to - from;
     float rot = direction.angle(Point2d{.y = -1, .x = 0});
-    unsigned velocity = (unsigned)std::rand() % (hi_velocity - lo_velocity);
+    unsigned velocity, cooldown;
+    {
+      std::unique_lock rand_lock(rand_mx);
+      velocity = (unsigned)std::rand() % (hi_velocity - lo_velocity);
+      cooldown = (unsigned)std::rand() % (hi_cooldown - lo_cooldown);
+    }
     velocity += lo_velocity;
+    cooldown += lo_cooldown;
     auto projectile = std::make_unique<projectile::Simple>(from, rot, velocity);
     float normie = 1/direction.length();
     projectile->y_vel = base_velocity.y + (normie * projectile->velocity) * direction.y;
@@ -111,8 +118,6 @@ std::future<void> Random::fire(Point2d from, Point2d to, Point2d base_velocity) 
     // auto wr = ProjectileInsertWrap(std::move(projectile));
     // projectile_inserter = std::move(wr);
     phom.prependCollider(std::move(projectile));
-    unsigned cooldown = (unsigned)std::rand() % (hi_cooldown - lo_cooldown);
-    cooldown += lo_cooldown;
     setUnready();
     return std::async(
       cooldown_fn,

@@ -1,4 +1,4 @@
-SRCMODULES = Game.cpp  geometry.cpp  physical_object.cpp  player.cpp  sprite.cpp  weapon.cpp  enemy.cpp  collider.cpp
+SRCMODULES = Game.cpp  geometry.cpp  physical_object.cpp  player.cpp  sprite.cpp  weapon.cpp  enemy.cpp  collider.cpp  rand_mx.cpp
 OBJMODULES = $(SRCMODULES:.cpp=.o)
 CXX = g++
 ifeq (debug, $(MAKECMDGOALS))

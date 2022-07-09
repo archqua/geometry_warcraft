@@ -1,4 +1,5 @@
 #include "enemy.h"
+#include "rand_mx.h"
 #include <cmath>
 #include <cstdlib>
 
@@ -24,12 +25,17 @@ namespace enemy {
 void Sphere::act(float dt) {
   // compute velocity
   float velocity = sqrt(y_vel*y_vel + x_vel*x_vel);
-  float noise = rand() % velocity_noise;
+  float noise, fire_ang;
+  {
+  std::unique_lock rand_lock(rand_mx);
+  fire_ang = (rand() % 360) * M_PI / 180.0;
+  noise = rand() % velocity_noise;
   noise -= velocity_noise/2;
   velocity += dt * noise;
   velocity += dt * traction_towards_desired_velocity * (desired_velocity - velocity);
   // modify rotation
   noise = rand() % rotation_noise;
+  } // release rand_mx
   noise -= rotation_noise/2;
   rot_vel += dt * noise;
   rot_vel -= dt * rot_vel * rot_vel_downtraction;
@@ -41,7 +47,6 @@ void Sphere::act(float dt) {
   Enemy::act(dt);
   // fire
   if (weapon->isReady()) {
-    float fire_ang = (rand() % 360) * M_PI / 180.0;
     Point2d target = pos + Point2d{
         .y = (int)(sin(fire_ang) * 100),
         .x = (int)(cos(fire_ang) * 100),
