@@ -10,3 +10,8 @@ make && make clean
 ```
 
 To see bounding boxes and collision shapes `make debug && make clean`.
+
+
+# Dependencies
+
+All you need is `libc`, `git`, `g++`, `make` and `libx11-dev`.
