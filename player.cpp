@@ -9,7 +9,7 @@ enum {
 
 Point2d Player::move(float dt) {
   // suicide
-  if (is_key_pressed(VK_SPACE)) {
+  if (is_key_pressed(VK_RETURN)) {
     pos.y = -300;
     pos.x = -300;
     y_frac = -300;

@@ -10,6 +10,8 @@
 #include "enemy.h"
 #include "log.h"
 #include <list>
+#include <unistd.h>
+#include <time.h>
 #include <chrono>
 #include <vector>
 #include <memory>
@@ -24,13 +26,112 @@
 //  is_mouse_button_pressed(int button) - check if mouse button is pressed (0 - left button, 1 - right button)
 //  schedule_quit_game() - quit game after act()
 
+// globals begin
 const char *player_sprite_file = "sprites/player.b";
+SpriteRef player_sprite(0,0);
 const char *sphere_sprite_file = "sprites/sphere.b";
+SpriteRef sphere_sprite(0,0);
 
 Armory armory;
-
 PhysicalObjectManager phom;
-// std::list<std::unique_ptr<PhysicalObject>> physical_objects;
+
+Point2d enemy_spawn_locations[] {
+  Point2d{.y=0                , .x=0               },
+  Point2d{.y=  SCREEN_HEIGHT/6, .x=0               },
+  Point2d{.y=2*SCREEN_HEIGHT/6, .x=0               },
+  Point2d{.y=3*SCREEN_HEIGHT/6, .x=0               },
+  Point2d{.y=4*SCREEN_HEIGHT/6, .x=0               },
+  Point2d{.y=5*SCREEN_HEIGHT/6, .x=0               },
+  Point2d{.y=  SCREEN_HEIGHT  , .x=0               },
+  Point2d{.y=  SCREEN_HEIGHT  , .x=  SCREEN_WIDTH/8},
+  Point2d{.y=  SCREEN_HEIGHT  , .x=2*SCREEN_WIDTH/8},
+  Point2d{.y=  SCREEN_HEIGHT  , .x=3*SCREEN_WIDTH/8},
+  Point2d{.y=  SCREEN_HEIGHT  , .x=4*SCREEN_WIDTH/8},
+  Point2d{.y=  SCREEN_HEIGHT  , .x=5*SCREEN_WIDTH/8},
+  Point2d{.y=  SCREEN_HEIGHT  , .x=6*SCREEN_WIDTH/8},
+  Point2d{.y=  SCREEN_HEIGHT  , .x=7*SCREEN_WIDTH/8},
+  Point2d{.y=  SCREEN_HEIGHT  , .x=  SCREEN_WIDTH  },
+  Point2d{.y=5*SCREEN_HEIGHT/6, .x=  SCREEN_WIDTH  },
+  Point2d{.y=4*SCREEN_HEIGHT/6, .x=  SCREEN_WIDTH  },
+  Point2d{.y=3*SCREEN_HEIGHT/6, .x=  SCREEN_WIDTH  },
+  Point2d{.y=2*SCREEN_HEIGHT/6, .x=  SCREEN_WIDTH  },
+  Point2d{.y=  SCREEN_HEIGHT/6, .x=  SCREEN_WIDTH  },
+  Point2d{.y=0                , .x=  SCREEN_WIDTH  },
+  Point2d{.y=0                , .x=7*SCREEN_WIDTH/8},
+  Point2d{.y=0                , .x=6*SCREEN_WIDTH/8},
+  Point2d{.y=0                , .x=5*SCREEN_WIDTH/8},
+  Point2d{.y=0                , .x=4*SCREEN_WIDTH/8},
+  Point2d{.y=0                , .x=3*SCREEN_WIDTH/8},
+  Point2d{.y=0                , .x=2*SCREEN_WIDTH/8},
+  Point2d{.y=0                , .x=  SCREEN_WIDTH/8},
+};
+
+Semaphore enemy_spawn_semaphore(1);
+std::future<void> enemy_spawn_future;
+
+// globals end
+
+void loadSprite(SpriteRef& sprite_ref, const char *sprite_file)
+{
+  try {
+    *sprite_ref = Sprite::fromBinaryFile(sprite_file);
+  } catch (const Sprite::FOError& err) {
+    log("failed to open sprite file: ", err.what(), "\n");
+    throw;
+  } catch (const Sprite::FRError& err) {
+    log("failed to read sprite file: ", err.what(), "\n");
+    throw;
+  }
+}
+
+void spawnPlayer(Point2d loc = Point2d{.y=SCREEN_HEIGHT/2, .x=SCREEN_WIDTH/2})
+{
+  std::unique_ptr<Player> player = std::make_unique<Player>(
+      loc, 0, player_sprite,
+      phom.futureAppender(),
+      Box2d{
+        .lt=Point2d{.y=0, .x=0},
+        .rb=Point2d{.y=SCREEN_HEIGHT, .x=SCREEN_WIDTH},
+      }
+  );
+  player->arm(armory[0], hitMask(Collider::Mask::enemy), receiveMask(Collider::Mask::player));
+  auto player_handle = phom.appendSemaphoredCollider(std::move(player));
+  auto sm = *player_handle->getSemaphore();
+  static_cast<ArmedObject&>(**player_handle).weaponSetUtilSemaphores(
+      std::make_pair(&sm->payload_semaphore, &sm->can_remove_semaphore)
+  );
+}
+
+void spawnSphere(Point2d loc)
+{
+  std::unique_ptr<enemy::Sphere> sphere = std::make_unique<enemy::Sphere>(
+      loc, 0, sphere_sprite,
+      phom.futureAppender(),
+      Box2d{
+        .lt=Point2d{.y=0, .x=0},
+        .rb=Point2d{.y=SCREEN_HEIGHT, .x=SCREEN_WIDTH},
+      }
+  );
+  sphere->arm(armory[2], hitMask(Collider::Mask::player), receiveMask(Collider::Mask::enemy));
+  auto sphere_handle = phom.appendSemaphoredCollider(std::move(sphere));
+  auto sm = *sphere_handle->getSemaphore();
+  static_cast<ArmedObject&>(**sphere_handle).weaponSetUtilSemaphores(
+    std::make_pair(&sm->payload_semaphore, &sm->can_remove_semaphore)
+  );
+}
+
+void spawnEnemies(unsigned interval /* ms */ = 1500)
+{
+  unsigned seconds = interval / 1000;
+  unsigned useconds = 1000 * (interval % 1000);
+  srand(time(NULL));
+  while (enemy_spawn_semaphore.count()) {
+    unsigned pos_idx = rand() % (sizeof(enemy_spawn_locations)/sizeof(Point2d));
+    sleep(seconds);
+    usleep(useconds);
+    spawnSphere(enemy_spawn_locations[pos_idx]);
+  }
+}
 
 // initialize game data in this function
 void initialize()
@@ -47,59 +148,11 @@ void initialize()
     throw;
   }
 
-  {
-    SpriteRef player_sprite(0,0);
-    try {
-      *player_sprite = Sprite::fromBinaryFile(player_sprite_file);
-    } catch (const Sprite::FOError& err) {
-      log("failed to open ", err.what(), "\n");
-      throw;
-    } catch (const Sprite::FRError& err) {
-      log("failed to read ", err.what(), "\n");
-      throw;
-    }
-    std::unique_ptr<Player> player = std::make_unique<Player>(
-        Point2d{.y = SCREEN_HEIGHT/2, .x = SCREEN_WIDTH/2}, 0, std::move(player_sprite),
-        phom.futureAppender(),
-        Box2d{
-          .lt=Point2d{.y=0, .x=0},
-          .rb=Point2d{.y=SCREEN_HEIGHT, .x=SCREEN_WIDTH},
-        }
-    );
-    player->arm(armory[0], hitMask(Collider::Mask::enemy), receiveMask(Collider::Mask::player));
-    auto player_handle = phom.appendSemaphoredCollider(std::move(player));
-    auto sm = *player_handle->getSemaphore();
-    static_cast<ArmedObject&>(**player_handle).weaponSetUtilSemaphores(
-        std::make_pair(&sm->payload_semaphore, &sm->can_remove_semaphore)
-    );
-  }
+  loadSprite(player_sprite, player_sprite_file);
+  loadSprite(sphere_sprite, sphere_sprite_file);
 
-  {
-    SpriteRef sphere_sprite(0,0);
-    try {
-      *sphere_sprite = Sprite::fromBinaryFile(sphere_sprite_file);
-    } catch (const Sprite::FOError& err) {
-      log("failed to open ", err.what(), "\n");
-      throw;
-    } catch (const Sprite::FRError& err) {
-      log("failed to read ", err.what(), "\n");
-      throw;
-    }
-    std::unique_ptr<enemy::Sphere> sphere = std::make_unique<enemy::Sphere>(
-        Point2d{.y = 50, .x = 50}, 0, std::move(sphere_sprite),
-        phom.futureAppender(),
-        Box2d{
-          .lt=Point2d{.y=0, .x=0},
-          .rb=Point2d{.y=SCREEN_HEIGHT, .x=SCREEN_WIDTH},
-        }
-    );
-    sphere->arm(armory[2], hitMask(Collider::Mask::player), receiveMask(Collider::Mask::enemy));
-    auto sphere_handle = phom.appendSemaphoredCollider(std::move(sphere));
-    auto sm = *sphere_handle->getSemaphore();
-    static_cast<ArmedObject&>(**sphere_handle).weaponSetUtilSemaphores(
-      std::make_pair(&sm->payload_semaphore, &sm->can_remove_semaphore)
-    );
-  }
+  spawnPlayer();
+  enemy_spawn_future = std::async(spawnEnemies, 1500);
 }
 
 // this function is called to update game data,
@@ -113,6 +166,8 @@ void act(float dt)
   if (is_key_pressed(VK_ESCAPE))
     schedule_quit_game();
 
+  if (is_key_pressed(VK_SPACE))
+    return;
   // log(phom.objectCount(), " objects ");
   // log(phom.semaphoreCount(), " semaphores ");
   // log(phom.futureCount(), " futures ");
@@ -236,5 +291,9 @@ void draw()
 // free game data in this function
 void finalize()
 {
+  enemy_spawn_semaphore.dec();
+  // w\o get screen is closed immediately
+  // and it feels less like game just froze
+  // enemy_spawn_future.get();
 }
 
