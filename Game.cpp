@@ -32,6 +32,11 @@ const char *player_sprite_file = "sprites/player.b";
 SpriteRef player_sprite(0,0);
 const char *sphere_sprite_file = "sprites/sphere.b";
 SpriteRef sphere_sprite(0,0);
+const char *welcome_sprite_file = "sprites/welcome.b";
+SpriteRef welcome_sprite(0,0);
+
+uint32_t welcome_buffer[SCREEN_HEIGHT][SCREEN_WIDTH];
+uint32_t *initializer_buffer = nullptr;
 
 Armory armory;
 PhysicalObjectManager phom;
@@ -68,6 +73,7 @@ Point2d enemy_spawn_locations[] {
 };
 
 Semaphore enemy_spawn_semaphore(1);
+Semaphore welcome_usage_semaphore(0);
 std::future<void> enemy_spawn_future;
 
 // globals end
@@ -121,7 +127,7 @@ void spawnSphere(Point2d loc)
   );
 }
 
-void spawnEnemies(unsigned interval /* ms */ = 1500)
+void spawnEnemies(unsigned init_delay /* ms */ = 500, unsigned interval /* ms */ = 1500)
 {
   unsigned seconds = interval / 1000;
   unsigned useconds = 1000 * (interval % 1000);
@@ -130,15 +136,43 @@ void spawnEnemies(unsigned interval /* ms */ = 1500)
     std::unique_lock rand_lock(rand_mx);
     srand(time(NULL));
   }
+  unsigned iseconds = init_delay / 1000;
+  unsigned iuseconds = 1000 * (init_delay % 1000);
+  sleep(iseconds);
+  usleep(iuseconds);
   while (enemy_spawn_semaphore.count()) {
+    spawnSphere(enemy_spawn_locations[pos_idx]);
     {
       std::unique_lock rand_lock(rand_mx);
       pos_idx = rand() % (sizeof(enemy_spawn_locations)/sizeof(Point2d));
     }
     sleep(seconds);
     usleep(useconds);
-    spawnSphere(enemy_spawn_locations[pos_idx]);
   }
+}
+
+void showWelcomeAndSpawnEnemies(
+    unsigned welcome_dur /* ms */ = 2000,
+    unsigned init_delay /* ms */ = 500, unsigned interval /* ms */ = 1500
+)
+{
+  std::unique_ptr<SpriteObject> welcome = std::make_unique<SpriteObject>(
+      Point2d{.y=SCREEN_HEIGHT/2, .x=SCREEN_WIDTH/2}, 0, welcome_sprite
+  );
+  // undefined behaviour
+  welcome->draw((uint32_t*)welcome_buffer, SCREEN_HEIGHT, SCREEN_WIDTH);
+  welcome_usage_semaphore.inc();
+  // undefined behaviour
+  initializer_buffer = (uint32_t*)welcome_buffer;
+  welcome_usage_semaphore.dec();
+  unsigned seconds = welcome_dur / 1000;
+  unsigned useconds = 1000 * (welcome_dur % 1000);
+  sleep(seconds);
+  usleep(useconds);
+  welcome_usage_semaphore.inc();
+  initializer_buffer = nullptr;
+  welcome_usage_semaphore.dec();
+  spawnEnemies(init_delay, interval);
 }
 
 // initialize game data in this function
@@ -158,9 +192,11 @@ void initialize()
 
   loadSprite(player_sprite, player_sprite_file);
   loadSprite(sphere_sprite, sphere_sprite_file);
+  loadSprite(welcome_sprite, welcome_sprite_file);
 
   spawnPlayer();
-  enemy_spawn_future = std::async(spawnEnemies, 1500);
+  // enemy_spawn_future = std::async(spawnEnemies, 500, 1500);
+  enemy_spawn_future = std::async(showWelcomeAndSpawnEnemies, 2000, 500, 1500);
 }
 
 // this function is called to update game data,
@@ -280,8 +316,19 @@ HITER_CONTINUE:
 // uint32_t buffer[SCREEN_HEIGHT][SCREEN_WIDTH] - is an array of 32-bit colors (8 bits per R, G, B)
 void draw()
 {
+  {
+  auto l = welcome_usage_semaphore.lock();
+  if (welcome_usage_semaphore.countUnsafe()) {
+    log("no draw at welcome usage ", welcome_usage_semaphore.countUnsafe());
+    return;
+  }
   // clear backbuffer
-  memset(buffer, 0, SCREEN_HEIGHT * SCREEN_WIDTH * sizeof(uint32_t));
+  if (initializer_buffer) {
+    memcpy(buffer, initializer_buffer, SCREEN_HEIGHT * SCREEN_WIDTH * sizeof(uint32_t));
+  } else {
+    memset(buffer, 0, SCREEN_HEIGHT * SCREEN_WIDTH * sizeof(uint32_t));
+  }
+  }
 
   for (auto iter = phom.objectsBegin(); iter != phom.objectsEnd(); ++iter) {
     PhysicalObject& obj = **iter;
