@@ -260,7 +260,6 @@ Box2d boundingBox2d(const Box2d& square, float rot);
 
 Box2d boundingBox2d(const Rectangle& rect);
 
-// TODO enabel_if n_points > 0
 template <unsigned n_points>
 Box2d boundingBox2d(const Point2d points[n_points]) {
   static_assert(n_points > 0);

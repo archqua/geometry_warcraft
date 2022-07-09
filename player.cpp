@@ -38,9 +38,10 @@ Point2d Player::move(float dt) {
   x_acc -= player_linear_viscousity * x_vel;
   y_acc -= player_linear_viscousity * y_vel;
   ArmedObject::act(dt);
-  // TODO round??
-  pos.x = x_frac;
-  pos.y = y_frac;
+  // in SpriteObject
+  // // TODO round??
+  // pos.x = x_frac;
+  // pos.y = y_frac;
 
   Point2d cursor{
     .y = get_cursor_y(),

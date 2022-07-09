@@ -83,7 +83,6 @@ byte alpha(Pixel p) {
 }
 
 Pixel over(Pixel front, Pixel back) {
-  // TODO
   byte front_arr[4], back_arr[4];
   // undefined behaviour
   *(Pixel*)front_arr = front;
@@ -225,9 +224,6 @@ void SpriteObject::draw(uint32_t *buffer, unsigned screen_h, unsigned screen_w) 
         point = chain.backward(point);
 
         // finally
-        // TODO actual color addition??
-        // TODO antialiasing??
-        // somehow fails
         buffer[i*screen_w + j] = pixel::over(
             static_cast<const Sprite&>(*sprite)(point.y, point.x),
             buffer[i*screen_w + j]

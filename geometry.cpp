@@ -91,36 +91,6 @@ RotationF Rectangle::rotatef_(float rot) {
   return collision_shape::rotatef_<4>(points, rot);
 }
 
-// void TransformChain::append(std::unique_ptr<Transform> transform) {
-//   transforms.push_back(std::move(transform));
-// }
-// Point2d  TransformChain::backward(Point2d point) const {
-//   for (auto biter = transforms.rbegin(); biter != transforms.rend(); ++biter) {
-//     point = (**biter)(point);
-//   }
-//   return point;
-// }
-// Point2d  TransformChain::forward(Point2d point) const {
-//   for (auto biter = transforms.begin(); biter != transforms.end(); ++biter) {
-//     point = (**biter)(point);
-//   }
-//   return point;
-// }
-
-// Point2d Translation::operator()(Point2d point) const {
-//   return point + shift;
-// }
-
-// Point2d Rotation::operator()(Point2d point) const {
-//   // TODO rounding instead of (int)???
-//   return Point2d{
-//     // rounding causes segfault
-//     // .y = (int)roundf(-point.x*s + point.y*c),
-//     // .x = (int)roundf(point.x*c + point.y*s),
-//     .y = (int)(-point.x*s + point.y*c),
-//     .x = (int)(point.x*c + point.y*s),
-//   };
-// }
 
 // box might break
 void Box2d::intersect_(const Box2d& other) {
@@ -292,7 +262,7 @@ void collision_shape::drawLine(Point2d from, Point2d to, uint32_t *buffer, unsig
     .rb = Point2d{.y = (int)screen_h, .x = (int)screen_w},
   };
   bounding_box.intersect_(screen_box);
-  // this is super inefficient but who cares
+  // not sure if it works properly
   for (int i = from.y; i != to.y; i += 1 - 2*((to.y - from.y) < 0)) {
     int j = from.x + (float)(i - from.y) / tilt;
       if (bounding_box.contains(Point2d{.y=i, .x=j,})) {
