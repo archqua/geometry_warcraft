@@ -5,6 +5,7 @@
 # Usage
 ```
 git clone https://github.com/archqua/geometry_warcraft.git
+cd geometry_warcraft
 make && make clean
 ./main
 ```
